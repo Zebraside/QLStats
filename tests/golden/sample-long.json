@@ -1,0 +1,88 @@
+{
+  "summary": {
+    "generated_at": "2026-10-18T20:42:18+03:00",
+    "day": {
+      "date": "2026-10-18",
+      "matches": 0,
+      "top_wins": {
+        "value": 0,
+        "players": []
+      },
+      "top_kills": {
+        "value": 0,
+        "players": []
+      }
+    },
+    "all_time": {
+      "matches": 0,
+      "top_wins": {
+        "value": 0,
+        "players": []
+      },
+      "top_kills": {
+        "value": 0,
+        "players": []
+      }
+    }
+  },
+  "players": {
+    "generated_at": "2026-10-18T20:42:18+03:00",
+    "players": []
+  },
+  "live": {
+    "generated_at": "2026-10-18T20:42:18+03:00",
+    "state": "empty",
+    "server_title": "Twitch server W",
+    "match": null,
+    "players": [],
+    "spectators": 0,
+    "score_approximate": true
+  },
+  "matches": [
+    {
+      "guid": "18e94174-2862-44c2-a808-3c6f7eb0f0a5",
+      "game_type": "FFA",
+      "map": "hellsgate",
+      "started_at": null,
+      "finished_at": 1792345022697,
+      "day_key": "2026-10-18",
+      "aborted": false,
+      "exit_msg": "Fraglimit hit.",
+      "game_length": 852,
+      "human_players": 1,
+      "counted": false,
+      "skip_reason": "no_start",
+      "incomplete": false
+    },
+    {
+      "guid": "edd5b102-fa07-4b32-99b0-828f94d7f521",
+      "game_type": "FFA",
+      "map": "tornado",
+      "started_at": 1792345204560,
+      "finished_at": 1792345212447,
+      "day_key": "2026-10-18",
+      "aborted": false,
+      "exit_msg": "Players have forfeited.",
+      "game_length": 8,
+      "human_players": 1,
+      "counted": false,
+      "skip_reason": "lt2_humans",
+      "incomplete": false
+    },
+    {
+      "guid": "3f8e4859-cb22-4d9b-a875-e7b4e8e646f8",
+      "game_type": "FFA",
+      "map": "campgrounds",
+      "started_at": 1792345290801,
+      "finished_at": 1792345338735,
+      "day_key": "2026-10-18",
+      "aborted": false,
+      "exit_msg": "Players have forfeited.",
+      "game_length": 48,
+      "human_players": 1,
+      "counted": false,
+      "skip_reason": "lt2_humans",
+      "incomplete": false
+    }
+  ]
+}

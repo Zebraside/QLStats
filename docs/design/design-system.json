@@ -1,0 +1,25 @@
+{
+  "v": 3,
+  "assetGroups": {},
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-10-18T18:19:14Z",
+    "v": 1
+  },
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "groups": [],
+  "lastChange": {
+    "by": "Claude",
+    "via": "Claude",
+    "at": "2026-10-18T18:38:00Z",
+    "note": "Выбран вариант B «Пульт»: страница Page со всеми состояниями, ростер LiveMatch в две колонки с 26.5rem"
+  },
+  "layout": "files",
+  "libraries": [],
+  "namespace": "QLStats",
+  "sections": {},
+  "title": "QLStats"
+}

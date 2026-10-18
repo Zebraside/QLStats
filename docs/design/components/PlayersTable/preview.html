@@ -1,0 +1,25 @@
+<!-- @dsCard group="Таблица" height=3100 width=1240 subtitle="60 игроков с сортировкой и липким заголовком, загрузка, мобильный с закреплённым ником" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>PlayersTable</title>
+<style>
+  body { padding: var(--space-6); }
+  .pv-state { margin: 0 0 var(--space-2); font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+  .pv-item { margin-bottom: var(--space-7); }
+  .pv-row { display: grid; grid-template-columns: 1fr 360px; gap: var(--space-6); align-items: start; }
+  .pv-phone { width: 360px; height: 560px; border: 1px solid var(--line-strong); overflow: auto; padding: var(--space-4); box-sizing: border-box; background: var(--bg); }
+  .pv-phone .qs-table-scroll { max-height: 440px; }
+</style></head>
+<body>
+<div id="root"></div>
+<script>
+  var Q = window.QLStats, h = Q.h, root = document.getElementById('root'), players = Q.sample.players;
+  root.appendChild(h('div', { class: 'pv-row pv-item' },
+    h('div', null, h('p', { class: 'pv-state' }, 'Первая загрузка'), Q.PlayersTable([], { loading: true, rows: 8 })),
+    h('div', null, h('p', { class: 'pv-state' }, 'Мобильный, 360 px — прокрутка, ник закреплён'),
+      h('div', { class: 'pv-phone' }, Q.SectionHead('Игроки', null), Q.PlayersTable(players, { sort: { key: 'wins', dir: 'desc' } })))));
+  root.appendChild(h('div', { class: 'pv-item' }, h('p', { class: 'pv-state' }, '60 игроков · сортировка по убийствам · кликните заголовок или Tab + Enter'),
+    Q.SectionHead('Игроки', 'только засчитанные матчи: FFA и дуэли'), Q.PlayersTable(players)));
+</script>
+</body>
+</html>

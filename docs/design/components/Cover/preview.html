@@ -1,0 +1,54 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>QLStats</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-sans); overflow: hidden; }
+  .cover { position: relative; height: 288px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 288px; overflow: hidden; }
+  .art svg { display: block; width: 480px; height: 288px; }
+  .concrete { fill: var(--line-strong); }
+  .steel { fill: var(--ink-muted); }
+  .signal { fill: var(--accent); }
+  .cut { fill: var(--bg); }
+  .bracket { fill: none; stroke: var(--ink-muted); stroke-width: 2; }
+  .words { position: absolute; left: var(--space-6); bottom: var(--space-6); max-width: 440px; }
+  .name { margin: 0; font-size: 100px; line-height: .92; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+  .tag { margin: var(--space-3) 0 0 4px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      accent 144×224 bled off the top (the one signal, largest) · line-strong 208×208 concrete slab · ink-muted 112×144 steel bleeding off the right edge — ≈30% of 960×288
+  arrangement one tall signal slab with a concrete slab and a steel plate, bottoms on one line space-6 above the edge, space-3 gutters
+  pattern     plus grid cut into the concrete in bg, from "precise, technical, mono, tabular digits": 6×6 pluses at a space-6 (32px) pitch; plate corners marked with the card brackets (bracket = 10px)
+  scales      sides in space-2 multiples; gutters space-3; pitch space-6; corners radius-0 (square, like the plates)
+-->
+<rect class="concrete" x="16" y="56" width="208" height="208"/>
+<g class="cut">
+  <path d="M43 81h10v2H43zM47 77h2v10h-2z"/><path d="M75 81h10v2H75zM79 77h2v10h-2z"/><path d="M107 81h10v2h-10zM111 77h2v10h-2z"/><path d="M139 81h10v2h-10zM143 77h2v10h-2z"/><path d="M171 81h10v2h-10zM175 77h2v10h-2z"/><path d="M203 81h10v2h-10zM207 77h2v10h-2z"/>
+  <path d="M43 113h10v2H43zM47 109h2v10h-2z"/><path d="M75 113h10v2H75zM79 109h2v10h-2z"/><path d="M107 113h10v2h-10zM111 109h2v10h-2z"/><path d="M139 113h10v2h-10zM143 109h2v10h-2z"/><path d="M171 113h10v2h-10zM175 109h2v10h-2z"/><path d="M203 113h10v2h-10zM207 109h2v10h-2z"/>
+  <path d="M43 145h10v2H43zM47 141h2v10h-2z"/><path d="M75 145h10v2H75zM79 141h2v10h-2z"/><path d="M107 145h10v2h-10zM111 141h2v10h-2z"/><path d="M139 145h10v2h-10zM143 141h2v10h-2z"/><path d="M171 145h10v2h-10zM175 141h2v10h-2z"/><path d="M203 145h10v2h-10zM207 141h2v10h-2z"/>
+  <path d="M43 177h10v2H43zM47 173h2v10h-2z"/><path d="M75 177h10v2H75zM79 173h2v10h-2z"/><path d="M107 177h10v2h-10zM111 173h2v10h-2z"/><path d="M139 177h10v2h-10zM143 173h2v10h-2z"/><path d="M171 177h10v2h-10zM175 173h2v10h-2z"/><path d="M203 177h10v2h-10zM207 173h2v10h-2z"/>
+  <path d="M43 209h10v2H43zM47 205h2v10h-2z"/><path d="M75 209h10v2H75zM79 205h2v10h-2z"/><path d="M107 209h10v2h-10zM111 205h2v10h-2z"/><path d="M139 209h10v2h-10zM143 205h2v10h-2z"/><path d="M171 209h10v2h-10zM175 205h2v10h-2z"/><path d="M203 209h10v2h-10zM207 205h2v10h-2z"/>
+  <path d="M43 241h10v2H43zM47 237h2v10h-2z"/><path d="M75 241h10v2H75zM79 237h2v10h-2z"/><path d="M107 241h10v2h-10zM111 237h2v10h-2z"/><path d="M139 241h10v2h-10zM143 237h2v10h-2z"/><path d="M171 241h10v2h-10zM175 237h2v10h-2z"/><path d="M203 241h10v2h-10zM207 237h2v10h-2z"/>
+</g>
+<rect class="signal" x="236" y="-16" width="144" height="280"/>
+<rect class="steel" x="392" y="120" width="112" height="144"/>
+<path class="bracket" d="M16 66V56h10"/>
+<path class="bracket" d="M392 130V120h10"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">QLStats</h1>
+<p class="tag">Статистика Quake Live: кто играет и кто лидирует.</p>
+</div>
+</div>
+</body>
+</html>

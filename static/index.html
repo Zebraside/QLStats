@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru" data-theme="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>QLStats</title>
+<meta name="description" content="Статистика сервера Quake Live: текущий матч, лидеры дня и всего времени, таблица игроков.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div class="qs-app">
+  <header class="qs-header">
+    <div class="qs-header-in">
+      <h1 class="qs-wordmark">QLStats</h1>
+      <span class="qs-server" id="qs-server"></span>
+      <p class="qs-upd" id="qs-upd" data-state="loading"><span class="qs-upd-dot" aria-hidden="true"></span>загрузка…</p>
+    </div>
+  </header>
+
+  <main class="qs-page">
+    <div class="qs-top">
+      <div class="qs-live-slot" id="qs-live"></div>
+      <div class="qs-summary" id="qs-summary"></div>
+    </div>
+
+    <section class="qs-players" id="qs-players" aria-labelledby="qs-h-players">
+      <header class="qs-section-head">
+        <h2 class="qs-h2" id="qs-h-players">Игроки</h2>
+        <p class="qs-section-sub">засчитываются FFA и дуэли · сортировка — клик по заголовку колонки</p>
+      </header>
+    </section>
+  </main>
+</div>
+<noscript><p class="qs-noscript">Для статистики нужен JavaScript.</p></noscript>
+</body>
+</html>

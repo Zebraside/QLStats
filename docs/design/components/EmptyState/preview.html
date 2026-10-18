@@ -1,0 +1,19 @@
+<!-- @dsCard group="Состояния" height=260 subtitle="Пустой день и ошибка API без данных" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>EmptyState</title>
+<style>
+  body { padding: var(--space-5); }
+  .pv { display: grid; gap: var(--space-5); max-width: 52rem; }
+  .pv-state { margin: 0 0 var(--space-2); font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+</style></head>
+<body>
+<div class="pv" id="root"></div>
+<script>
+  var Q = window.QLStats, h = Q.h, root = document.getElementById('root');
+  root.appendChild(h('div', null, h('p', { class: 'pv-state' }, 'Сегодня матчей не было'), Q.EmptyState({ kind: 'day' })));
+  root.appendChild(h('div', null, h('p', { class: 'pv-state' }, 'Ошибка API, данных ещё нет'), Q.EmptyState({ kind: 'error', retryAt: Date.now() + 30000 })));
+  Q.startTicker(root);
+</script>
+</body>
+</html>

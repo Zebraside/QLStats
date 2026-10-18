@@ -1,0 +1,25 @@
+<!-- @dsCard group="Шапка" height=200 subtitle="Тихая подпись в шапке: обычное обновление, первая загрузка, ошибка API" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>UpdateIndicator</title>
+<style>
+  body { padding: var(--space-5); }
+  .pv { display: grid; gap: var(--space-4); }
+  .pv-row { display: grid; grid-template-columns: 12rem 1fr; align-items: center; gap: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--line); }
+  .pv-row:last-child { border-bottom: 0; }
+  .pv-label { margin: 0; font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+</style></head>
+<body>
+<div class="pv" id="root"></div>
+<script>
+  var Q = window.QLStats, root = document.getElementById('root'), now = Date.now();
+  [['Обновлено', { status: 'ok', updatedAt: now - 12000 }],
+   ['Первая загрузка', { status: 'loading' }],
+   ['Ошибка API', { status: 'error', updatedAt: now - 47000, retryAt: now + 30000 }]
+  ].forEach(function (r) {
+    root.appendChild(Q.h('div', { class: 'pv-row' }, Q.h('p', { class: 'pv-label' }, r[0]), Q.UpdateIndicator(r[1])));
+  });
+  Q.startTicker(root);
+</script>
+</body>
+</html>

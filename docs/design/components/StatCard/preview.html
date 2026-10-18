@@ -1,0 +1,35 @@
+<!-- @dsCard group="Сводка" height=1180 width=1100 subtitle="Статистика дня, за всё время, ничья, пустой день, загрузка" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>StatCard</title>
+<style>
+  body { padding: var(--space-6); }
+  .pv-state { margin: 0 0 var(--space-2); font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+  .pv-block { margin-bottom: var(--space-7); }
+  .pv-block .qs-empty { margin-top: var(--space-3); }
+  .pv-narrow { width: 328px; }
+</style></head>
+<body>
+<div id="root"></div>
+<script>
+  var Q = window.QLStats, h = Q.h, root = document.getElementById('root'), S = Q.sample.summary;
+  var M = ['матч', 'матча', 'матчей'], W = ['победа', 'победы', 'побед'], K = ['убийство', 'убийства', 'убийств'];
+  function cards(part, day, loading) {
+    return h('div', { class: 'qs-cards' },
+      Q.StatCard({ label: day ? 'Матчей сегодня' : 'Матчей всего', value: part.matches, unit: M, loading: loading }),
+      Q.StatCard({ label: 'Больше всего побед', value: part.top_wins.value, unit: W, leaders: part.top_wins.players, loading: loading }),
+      Q.StatCard({ label: 'Больше всего убийств', value: part.top_kills.value, unit: K, leaders: part.top_kills.players, loading: loading }));
+  }
+  function block(state, title, sub, body, extra) {
+    root.appendChild(h('section', { class: 'pv-block' }, h('p', { class: 'pv-state' }, state), Q.SectionHead(title, sub), body, extra || null));
+  }
+  var DAY = 'день по московскому времени, сброс в 00:00';
+  block('Обычный день', 'Статистика дня', DAY, cards(S.normal.day, true));
+  block('За всё время', 'За всё время', null, cards(S.normal.all_time, false));
+  block('Ничья: пятеро делят победы, длинный ник у лидера по убийствам', 'Статистика дня', DAY, cards(S.ties.day, true));
+  block('EmptyState: сегодня матчей не было', 'Статистика дня', DAY, cards(S.emptyDay.day, true), Q.EmptyState({ kind: 'day' }));
+  block('Первая загрузка', 'Статистика дня', DAY, cards(S.normal.day, true, true));
+  block('Мобильный, 360 px', 'Статистика дня', DAY, h('div', { class: 'pv-narrow' }, cards(S.ties.day, true)));
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!-- @dsCard group="Макет страницы" height=980 width=1240 page subtitle="Три варианта компоновки (wireframe) на 1280 px и общий порядок на 360 px · выбран B «Пульт»" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Варианты layout</title>
+<style>
+  body { padding: var(--space-6); }
+  .wf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
+  .wf-title { margin: 0; font-size: var(--fs-lg); line-height: 24px; font-weight: 600; }
+  .wf-title span { font-family: var(--font-mono); color: var(--ink-muted); font-weight: 500; margin-right: var(--space-2); }
+  .wf-desc { margin: var(--space-1) 0 var(--space-3); font-size: var(--fs-sm); line-height: 18px; color: var(--ink-muted); min-height: 54px; }
+  /* «экран» 1280×800, уменьшенный: высота 800/1280 ширины, ниже — продолжение страницы */
+  .wf-screen { position: relative; border: 1px solid var(--line-strong); background: var(--bg); padding: 8px; display: grid; gap: 6px; align-content: start; height: 520px; overflow: hidden; }
+  .wf-fold { position: absolute; left: 0; right: 0; top: calc(var(--fold) * 1px); border-top: 1px dashed var(--ink-muted); }
+  .wf-fold::after { content: "первый экран 1280×800"; position: absolute; right: 4px; top: 2px; font: 500 10px/12px var(--font-mono); color: var(--ink-muted); background: var(--bg); padding: 0 3px; }
+  .b { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-muted); font: 500 10px/12px var(--font-mono); letter-spacing: .04em; padding: 4px 5px; box-sizing: border-box; overflow: hidden; }
+  .b-hd { height: 22px; display: flex; justify-content: space-between; }
+  .b-live { border-color: var(--accent); color: var(--accent); }
+  .b-lbl { height: 12px; border: 0; background: none; padding: 0 1px; }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .card { height: 46px; }
+  .tbl { height: 230px; background: repeating-linear-gradient(var(--surface) 0 9px, var(--line) 9px 10px); }
+  .two { display: grid; gap: 6px; }
+  .wf-pros { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); font-size: var(--fs-sm); line-height: 18px; }
+  .wf-pros li { display: grid; grid-template-columns: 1.25rem 1fr; }
+  .wf-pros li::before { font-family: var(--font-mono); color: var(--ink-muted); }
+  .wf-pros .plus::before { content: "+"; }
+  .wf-pros .minus::before { content: "−"; }
+  .wf-rec { display: inline-block; margin-left: var(--space-2); padding: 0 6px; font: 500 var(--fs-xs)/18px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--line-strong); vertical-align: 2px; }
+  .wf-mobile { margin-top: var(--space-7); display: grid; grid-template-columns: 200px 1fr; gap: var(--space-6); align-items: start; }
+  .wf-phone { border: 1px solid var(--line-strong); background: var(--bg); padding: 6px; display: grid; gap: 5px; }
+  .wf-phone .card { height: 34px; }
+  .wf-note { font-size: var(--fs-sm); line-height: 20px; color: var(--ink-muted); max-width: 44rem; }
+  .wf-note strong { color: var(--ink); font-weight: 600; }
+</style></head>
+<body>
+<div class="wf-grid">
+
+  <section>
+    <h2 class="wf-title"><span>A</span>Лента</h2>
+    <p class="wf-desc">Всё в одну колонку во всю ширину. LiveMatch раскладывает участников в две колонки, чтобы при 12 игроках оставаться низким.</p>
+    <div class="wf-screen" style="--fold: 238">
+      <div class="b b-hd">QLStats · сервер <span>UpdateIndicator</span></div>
+      <div class="b b-live" style="height: 92px">LiveMatch — карта · режим · время · лимиты<br>участники 1–6 │ участники 7–12</div>
+      <div class="b b-lbl">Статистика дня</div>
+      <div class="row3"><div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div></div>
+      <div class="b b-lbl">За всё время</div>
+      <div class="row3"><div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div></div>
+      <div class="b b-lbl">Игроки</div>
+      <div class="b tbl">PlayersTable · 9 колонок</div>
+      <div class="wf-fold"></div>
+    </div>
+    <ul class="wf-pros">
+      <li class="plus">Самый простой перенос в код, порядок блоков = порядок в брифе.</li>
+      <li class="plus">Таблица сразу на всю ширину, без горизонтальной прокрутки.</li>
+      <li class="minus">«За всё время» уходит за первый экран.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="wf-title"><span>B</span>Пульт<span class="wf-rec">выбран</span></h2>
+    <p class="wf-desc">Сверху пульт: LiveMatch слева, обе сводки справа одна над другой. Таблица ниже на всю ширину.</p>
+    <div class="wf-screen" style="--fold: 238">
+      <div class="b b-hd">QLStats · сервер <span>UpdateIndicator</span></div>
+      <div class="two" style="grid-template-columns: 5fr 7fr">
+        <div class="b b-live" style="height: 172px">LiveMatch<br>карта · режим<br>время · лимиты<br><br>участники 1–12<br>одной колонкой</div>
+        <div class="two">
+          <div class="b b-lbl">Статистика дня</div>
+          <div class="row3"><div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div></div>
+          <div class="b b-lbl">За всё время</div>
+          <div class="row3"><div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div></div>
+        </div>
+      </div>
+      <div class="b b-lbl">Игроки</div>
+      <div class="b tbl">PlayersTable · 9 колонок</div>
+      <div class="wf-fold"></div>
+    </div>
+    <ul class="wf-pros">
+      <li class="plus">Матч и обе сводки в первом экране даже при 12 участниках.</li>
+      <li class="plus">Таблица на всю ширину, липкий заголовок работает от окна.</li>
+      <li class="minus">Карточки уже — числа «5 210» на пределе, нужен кегль 44 px.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="wf-title"><span>C</span>Сводка сбоку</h2>
+    <p class="wf-desc">Слева липкая колонка: LiveMatch и компактные сводки. Справа таблица во всю высоту — удобно сравнивать себя с другими.</p>
+    <div class="wf-screen" style="--fold: 238">
+      <div class="b b-hd">QLStats · сервер <span>UpdateIndicator</span></div>
+      <div class="two" style="grid-template-columns: 4fr 8fr">
+        <div class="two">
+          <div class="b b-live" style="height: 120px">LiveMatch<br>участники<br>одной колонкой</div>
+          <div class="b b-lbl">День</div>
+          <div class="b card" style="height: 30px">StatCard</div><div class="b card" style="height: 30px">StatCard</div><div class="b card" style="height: 30px">StatCard</div>
+          <div class="b b-lbl">Всё время</div>
+          <div class="b card" style="height: 30px">StatCard</div><div class="b card" style="height: 30px">StatCard</div><div class="b card" style="height: 30px">StatCard</div>
+        </div>
+        <div class="two">
+          <div class="b b-lbl">Игроки</div>
+          <div class="b tbl" style="height: 440px">PlayersTable<br>9 колонок<br>↔ прокрутка</div>
+        </div>
+      </div>
+      <div class="wf-fold"></div>
+    </div>
+    <ul class="wf-pros">
+      <li class="plus">Таблица видна сразу, сводка всегда под рукой.</li>
+      <li class="minus">На 1280 px таблице не хватает ~250 px: нужна горизонтальная прокрутка.</li>
+      <li class="minus">Карточки в столбик теряют роль главного акцента.</li>
+    </ul>
+  </section>
+
+</div>
+
+<div class="wf-mobile">
+  <div class="wf-phone" aria-label="Мобильная версия, 360 px">
+    <div class="b b-hd">QLStats</div>
+    <div class="b b-lbl">UpdateIndicator</div>
+    <div class="b b-live" style="height: 78px">LiveMatch</div>
+    <div class="b b-lbl">Статистика дня</div>
+    <div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div>
+    <div class="b b-lbl">За всё время</div>
+    <div class="b card">StatCard</div><div class="b card">StatCard</div><div class="b card">StatCard</div>
+    <div class="b tbl" style="height: 110px">Ник │ ↔ таблица</div>
+  </div>
+  <div class="wf-note">
+    <p><strong>360 px — одинаково для всех трёх вариантов.</strong> Блоки встают в колонку в порядке брифа: шапка, LiveMatch, статистика дня, за всё время, таблица. Карточки по одной в ряд. Таблица прокручивается в своей рамке в обе стороны, ник и заголовок закреплены.</p>
+    <p><strong>При масштабе 200 %</strong> экран 1280 px ведёт себя как 640 px: включается та же одноколоночная раскладка. Компоненты подстраиваются под ширину своего контейнера (container queries), поэтому работают в любой из колонок.</p>
+    <p><strong>Выбран вариант B.</strong> Полная страница со всеми состояниями — в карточке «Page».</p>
+  </div>
+</div>
+</body>
+</html>

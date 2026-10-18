@@ -1,0 +1,84 @@
+/* QLStats — generated from tokens.json */
+
+:root, [data-theme="graphite"] {
+  --bg: #131518;
+  --surface: #1a1d21;
+  --surface-raised: #22262b;
+  --surface-sunken: #0f1113;
+  --line: #2b3036;
+  --line-strong: #4a5159;
+  --hatch: #23272c;
+  --skeleton: #262a30;
+  --skeleton-hi: #30353c;
+  --ink: #e8eaec;
+  --ink-muted: #a2a8af;
+  --accent: #d6f54a;
+  --accent-soft: #262c12;
+  --on-accent: #131518;
+  --team-red: #ff8080;
+  --team-blue: #7fb0ff;
+  --focus: var(--accent);
+  --shadow-sticky: 6px 0 8px -6px rgba(0, 0, 0, 0.7);
+}
+[data-theme="concrete"] {
+  --bg: #e9eae8;
+  --surface: #f5f5f3;
+  --surface-raised: #ffffff;
+  --surface-sunken: #dfe0dd;
+  --line: #cfd1cd;
+  --line-strong: #8a9097;
+  --hatch: #d3d5d1;
+  --skeleton: #dcdedb;
+  --skeleton-hi: #eceeea;
+  --ink: #16181b;
+  --ink-muted: #50565d;
+  --accent: #4d5c00;
+  --accent-soft: #eef7c4;
+  --on-accent: #ffffff;
+  --team-red: #b3261e;
+  --team-blue: #1f56b8;
+  --shadow-sticky: 6px 0 8px -6px rgba(0, 0, 0, 0.25);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-0: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-num: 14px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-stat: 56px;
+  --fs-stat-sm: 44px;
+  --page-max: 1240px;
+  --row-h: 36px;
+  --row-h-live: 32px;
+  --nick-max: 16rem;
+  --nick-max-narrow: 9.5rem;
+  --bracket: 10px;
+  --dot: 8px;
+  --icon: 16px;
+  --dur-fast: 120ms;
+  --dur-pulse: 1600ms;
+  --dur-shimmer: 1400ms;
+  --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.stat-value { font-family: var(--font-mono); font-size: 56px; line-height: 56px; font-weight: 600; letter-spacing: -0.02em; }
+.live-clock { font-family: var(--font-mono); font-size: 24px; line-height: 28px; font-weight: 600; }
+.table-num { font-family: var(--font-mono); font-size: 14px; line-height: 20px; font-weight: 400; }
+.label { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.08em; }
+.wordmark { font-family: var(--font-sans); font-size: 24px; line-height: 28px; font-weight: 700; letter-spacing: -0.01em; }
+.section-title { font-family: var(--font-sans); font-size: 18px; line-height: 24px; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.body-sm { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; }
+.col-head { font-family: var(--font-sans); font-size: 12px; line-height: 15px; font-weight: 500; }
+.nick { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }

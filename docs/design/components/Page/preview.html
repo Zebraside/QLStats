@@ -1,0 +1,60 @@
+<!-- @dsCard group="Макет страницы" height=2900 width=1330 page subtitle="Вариант B «Пульт» целиком: переключатель состояний и ширины 1280 / 360 px" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Страница — вариант B «Пульт»</title>
+<style>
+  body { padding: var(--space-5); }
+  .pv-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px dashed var(--line-strong); }
+  .pv-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+  .pv-cap { font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-right: var(--space-2); }
+  .pv-btn { font: 500 var(--fs-sm)/1 var(--font-sans); color: var(--ink-muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 7px 10px; cursor: pointer; }
+  .pv-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+  .pv-btn[aria-pressed="true"] { color: var(--ink); background: var(--surface-raised); border-color: var(--ink-muted); }
+  .pv-frame { border: 1px solid var(--line-strong); margin: 0 auto; }
+  .pv-frame[data-w="1280"] { width: 1280px; }
+  .pv-frame[data-w="360"] { width: 360px; margin: 0; }
+</style></head>
+<body>
+<div class="pv-bar" aria-label="Управление превью">
+  <div class="pv-group" id="states" role="group" aria-label="Состояние"><span class="pv-cap">Состояние</span></div>
+  <div class="pv-group" id="widths" role="group" aria-label="Ширина"><span class="pv-cap">Ширина</span></div>
+</div>
+<div class="pv-frame" id="frame" data-w="1280"></div>
+<script>
+  var Q = window.QLStats, h = Q.h, S = Q.sample, now = Date.now();
+  var ok = function () { return { status: 'ok', updatedAt: Date.now() - 8000 }; };
+  var err = function () { return { status: 'error', updatedAt: Date.now() - 52000, retryAt: Date.now() + 30000 }; };
+  var STATES = [
+    ['match', 'Идёт матч', function () { return { live: S.live.ffa, summary: S.summary.normal, players: S.players, status: ok() }; }],
+    ['many', 'Много данных · 12 игроков', function () { return { live: S.live.ffa12, summary: S.summary.ties, players: S.players, status: ok() }; }],
+    ['team', 'Командный режим', function () { return { live: S.live.team12, summary: S.summary.normal, players: S.players, status: ok() }; }],
+    ['warmup', 'Разминка', function () { return { live: S.live.warmup, summary: S.summary.normal, players: S.players, status: ok() }; }],
+    ['empty', 'Сервер пуст', function () { return { live: S.live.empty, summary: S.summary.normal, players: S.players, status: ok() }; }],
+    ['offline', 'Нет связи', function () { return { live: S.live.offline, summary: S.summary.normal, players: S.players, status: ok() }; }],
+    ['day', 'Пустой день', function () { return { live: S.live.empty, summary: S.summary.emptyDay, players: S.players, status: ok() }; }],
+    ['loading', 'Загрузка', function () { return { liveLoading: true, summary: null, players: null, status: { status: 'loading' } }; }],
+    ['error', 'Ошибка API', function () { return { live: S.live.ffa, summary: S.summary.normal, players: S.players, status: err() }; }],
+    ['nodata', 'Ошибка без данных', function () { return { live: S.live.ffa, summary: null, players: null, status: err() }; }]
+  ];
+  var frame = document.getElementById('frame'), cur = 'match', stop = null;
+  function render() {
+    var st = STATES.filter(function (s) { return s[0] === cur; })[0];
+    if (stop) stop();
+    frame.innerHTML = '';
+    frame.appendChild(Q.Page(st[2]()));
+    stop = Q.startTicker(frame);
+  }
+  function buttons(boxId, items, get, set) {
+    var box = document.getElementById(boxId), btns = [];
+    items.forEach(function (it) {
+      var b = h('button', { type: 'button', class: 'pv-btn', 'aria-pressed': String(get() === it[0]) }, it[1]);
+      b.addEventListener('click', function () { set(it[0]); btns.forEach(function (x, i) { x.setAttribute('aria-pressed', String(items[i][0] === it[0])); }); });
+      btns.push(b); box.appendChild(b);
+    });
+  }
+  buttons('states', STATES, function () { return cur; }, function (k) { cur = k; render(); });
+  buttons('widths', [['1280', 'Десктоп 1280'], ['360', 'Мобильный 360']], function () { return frame.dataset.w; }, function (w) { frame.dataset.w = w; });
+  render();
+</script>
+</body>
+</html>

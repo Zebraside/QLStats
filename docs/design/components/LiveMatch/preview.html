@@ -1,0 +1,32 @@
+<!-- @dsCard group="Текущий матч" height=2600 width=1100 subtitle="Идёт матч (FFA, 12 игроков, командный режим), разминка, сервер пуст, нет связи, загрузка, мобильный" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>LiveMatch</title>
+<style>
+  body { padding: var(--space-6); }
+  .pv-state { margin: 0 0 var(--space-2); font: 500 var(--fs-xs)/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+  .pv-item { margin-bottom: var(--space-6); }
+  .pv-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+  .pv-narrow { width: 328px; }
+  .pv-side { display: grid; grid-template-columns: 26rem 1fr; gap: var(--space-5); align-items: start; }
+</style></head>
+<body>
+<div id="root"></div>
+<script>
+  var Q = window.QLStats, h = Q.h, root = document.getElementById('root'), L = Q.sample.live;
+  function item(label, node) { var d = h('div', { class: 'pv-item' }, h('p', { class: 'pv-state' }, label), node); root.appendChild(d); return d; }
+  item('Идёт матч · FFA, 3 участника, лидер выделен', Q.LiveMatch(L.ffa));
+  item('Идёт матч · FFA, 12 участников, ничья на первом месте', Q.LiveMatch(L.ffa12));
+  item('Идёт матч · командный режим (CTF), 12 участников red / blue', Q.LiveMatch(L.team12));
+  item('Разминка', Q.LiveMatch(L.warmup));
+  root.appendChild(h('div', { class: 'pv-pair pv-item' },
+    h('div', null, h('p', { class: 'pv-state' }, 'Сервер пуст'), Q.LiveMatch(L.empty)),
+    h('div', null, h('p', { class: 'pv-state' }, 'Нет связи с сервером'), Q.LiveMatch(L.offline))));
+  item('Первая загрузка', Q.LiveMatch(null, { loading: true }));
+  root.appendChild(h('div', { class: 'pv-side pv-item' },
+    h('div', null, h('p', { class: 'pv-state' }, 'Узкая колонка, 416 px · FFA 12'), Q.LiveMatch(L.ffa12)),
+    h('div', { class: 'pv-narrow' }, h('p', { class: 'pv-state' }, 'Мобильный, 360 px · CTF'), Q.LiveMatch(L.team12))));
+  Q.startTicker(root);
+</script>
+</body>
+</html>

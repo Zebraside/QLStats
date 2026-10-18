@@ -1,0 +1,44 @@
+[package]
+name = "qlstats"
+version = "0.1.0"
+edition = "2024"
+description = "Статистика игроков Quake Live по ZMQ-потоку"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "qlstats"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+thiserror = "2"
+arc-swap = "1"
+axum = "0.8"
+bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+chrono-tz = "0.10"
+clap = { version = "4", features = ["derive", "env"] }
+ctrlc = "3"
+dotenvy = "0.15"
+flate2 = "1"
+mime_guess = "2"
+rusqlite = { version = "0.37", features = ["bundled"] }
+rust-embed = "8"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "net", "fs"] }
+tower-http = { version = "0.6", features = ["compression-gzip", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+zmq = "0.10"
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"

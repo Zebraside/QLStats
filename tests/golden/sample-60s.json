@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "generated_at": "2026-10-18T20:35:58+03:00",
+    "day": {
+      "date": "2026-10-18",
+      "matches": 0,
+      "top_wins": {
+        "value": 0,
+        "players": []
+      },
+      "top_kills": {
+        "value": 0,
+        "players": []
+      }
+    },
+    "all_time": {
+      "matches": 0,
+      "top_wins": {
+        "value": 0,
+        "players": []
+      },
+      "top_kills": {
+        "value": 0,
+        "players": []
+      }
+    }
+  },
+  "players": {
+    "generated_at": "2026-10-18T20:35:58+03:00",
+    "players": []
+  },
+  "live": {
+    "generated_at": "2026-10-18T20:35:58+03:00",
+    "state": "warmup",
+    "server_title": null,
+    "match": null,
+    "players": [
+      {
+        "steam_id": "0",
+        "name": "Ptica",
+        "bot": true,
+        "team": "free",
+        "score": null,
+        "kills": null
+      },
+      {
+        "steam_id": "76561198182889645",
+        "name": "Saint_P",
+        "bot": false,
+        "team": "free",
+        "score": null,
+        "kills": null
+      }
+    ],
+    "spectators": 0,
+    "score_approximate": true
+  },
+  "matches": []
+}
