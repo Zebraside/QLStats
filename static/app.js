@@ -2,10 +2,9 @@
  * QLStats — клиент страницы (вариант B «Пульт»). Vanilla JS, без библиотек и сборки.
  *
  * Данные:
- *   /api/live                    — раз в 5 с;
- *   /api/summary, /api/players   — при загрузке, раз в 30 с и при возвращении на вкладку.
- * Все запросы идут с If-None-Match; на 304 блоки не перерисовываются.
- * Время матча, «обновлено N с назад» и обратные отсчёты тикают локально раз в секунду.
+ *   /api/live, /api/summary, /api/players — один раз при загрузке страницы.
+ * Автообновления нет: новые данные появляются только после перезагрузки страницы
+ * (решение владельца, см. REQUIREMENTS.md §4). Время матча показано на момент загрузки.
  *
  * Безопасность: данные API (ники, названия) попадают в DOM только через textContent
  * и setAttribute. innerHTML используется лишь для констант-иконок ICONS.
@@ -13,11 +12,7 @@
 (function () {
   'use strict';
 
-  var LIVE_EVERY = 5000;
-  var STATS_EVERY = 30000;
   var REQUEST_TIMEOUT = 10000;
-  /* Сколько можно показывать последний ответ /api/live, если новые не приходят */
-  var LIVE_STALE_AFTER = 30000;
   var SORT_STORAGE_KEY = 'qlstats.players.sort';
 
   /* =====================================================================
@@ -98,15 +93,10 @@
       function p(x) { return (x < 10 ? '0' : '') + x; }
       return (hh ? hh + ':' + p(mm) : p(mm)) + ':' + p(ss);
     },
-    ago: function (sec) {
-      sec = Math.max(0, Math.round(sec));
-      if (sec < 60) return 'обновлено ' + sec + NBSP + 'с назад';
-      var m = Math.floor(sec / 60);
-      if (m < 60) return 'обновлено ' + m + NBSP + 'мин назад';
-      return 'обновлено ' + Math.floor(m / 60) + NBSP + 'ч назад';
+    /* «данные на 20:52:07» — время загрузки страницы по часам зрителя */
+    loadedAt: function (ms) {
+      return 'данные на ' + new Date(ms).toLocaleTimeString('ru-RU');
     },
-    seconds: function (sec) { return Math.max(0, Math.ceil(sec)) + NBSP + 'с'; },
-    retry: function (sec) { return 'не удалось обновить, повтор через ' + fmt.seconds(sec); },
     /* время по Москве: «20:52» */
     mskTime: function (iso) {
       var t = Date.parse(iso);
@@ -137,24 +127,11 @@
     return el;
   }
 
-  /* =====================================================================
-   * Тикер: раз в секунду обновляет тикающие подписи, блоки не перерисовываются
-   * ===================================================================== */
   /* Разница «часы сервера − локальные часы», мс. Нужна, чтобы время матча считалось
      от started_at сервера, даже если часы у зрителя спешат или отстают. */
   var serverOffset = 0, offsetKnown = false;
 
-  function tick() {
-    var now = Date.now(), els, i, el;
-    els = document.querySelectorAll('[data-qs-ago]');
-    for (i = 0; i < els.length; i++) { el = els[i]; el.textContent = fmt.ago((now - Number(el.dataset.qsAgo)) / 1000); }
-    els = document.querySelectorAll('[data-qs-retry]');
-    for (i = 0; i < els.length; i++) { el = els[i]; el.textContent = fmt.retry((Number(el.dataset.qsRetry) - now) / 1000); }
-    els = document.querySelectorAll('[data-qs-countdown]');
-    for (i = 0; i < els.length; i++) { el = els[i]; el.textContent = fmt.seconds((Number(el.dataset.qsCountdown) - now) / 1000); }
-    els = document.querySelectorAll('[data-qs-start]');
-    for (i = 0; i < els.length; i++) { el = els[i]; el.textContent = fmt.clock((now + serverOffset - Number(el.dataset.qsStart)) / 1000); }
-  }
+  function reloadPage() { location.reload(); }
 
   /* =====================================================================
    * Общие куски разметки
@@ -173,15 +150,11 @@
     if (s.status === 'loading') {
       add(el, [h('span', { class: 'qs-upd-dot', 'aria-hidden': 'true' }), 'загрузка…']);
     } else if (s.status === 'error') {
-      add(el, [
-        icon('warn'),
-        h('span', { 'aria-hidden': 'true', dataset: { qsRetry: String(s.retryAt) } }, fmt.retry((s.retryAt - Date.now()) / 1000)),
-        sr('Не удалось обновить статистику, повтор через 30 секунд. Показаны последние полученные данные.')
-      ]);
-      if (s.updatedAt) el.title = 'Показаны данные на ' + new Date(s.updatedAt).toLocaleTimeString('ru-RU');
+      add(el, [icon('warn'), h('span', null, 'не удалось загрузить статистику — обновите страницу')]);
     } else {
       add(el, [h('span', { class: 'qs-upd-dot', 'aria-hidden': 'true' }),
-        h('span', { dataset: { qsAgo: String(s.updatedAt) } }, fmt.ago((Date.now() - s.updatedAt) / 1000))]);
+        h('span', { title: 'Страница не обновляется сама. Чтобы увидеть новые данные, перезагрузите её.' },
+          fmt.loadedAt(s.updatedAt))]);
     }
   }
 
@@ -248,15 +221,14 @@
   }
 
   /* ---------- EmptyState ---------- */
-  function EmptyState(kind, retryAt, onRetry) {
+  function EmptyState(kind) {
     if (kind === 'error') {
       return h('div', { class: 'qs-empty', 'data-kind': 'error', role: 'alert' },
         icon('warn', 'qs-empty-icon'),
         h('div', { class: 'qs-empty-text' },
           h('p', { class: 'qs-empty-title' }, 'Статистика пока недоступна'),
-          h('p', { class: 'qs-empty-sub' }, 'Сервер статистики не ответил. Повторим автоматически через ',
-            h('span', { class: 'qs-num', dataset: { qsCountdown: String(retryAt) } }, fmt.seconds((retryAt - Date.now()) / 1000)), '.')),
-        h('button', { type: 'button', class: 'qs-btn', onclick: onRetry }, icon('refresh'), 'Повторить сейчас'));
+          h('p', { class: 'qs-empty-sub' }, 'Сервер статистики не ответил. Обновите страницу, чтобы попробовать ещё раз.')),
+        h('button', { type: 'button', class: 'qs-btn', onclick: reloadPage }, icon('refresh'), 'Обновить страницу'));
     }
     return h('div', { class: 'qs-empty', 'data-kind': 'day' },
       icon('calendar', 'qs-empty-icon'),
@@ -397,7 +369,7 @@
 
     if (st === 'unavailable') {
       add(sec, liveStateMessage('warn', 'Текущий матч недоступен',
-        'Сервер статистики не ответил. Повторяем каждые 5' + NBSP + 'с.'));
+        'Сервер статистики не ответил. Обновите страницу, чтобы попробовать ещё раз.'));
       return sec;
     }
 
@@ -441,7 +413,7 @@
     var limits = fmt.limits(m.limits);
     var clock = isNaN(started)
       ? h('span', { class: 'qs-clock qs-num' }, '—')
-      : h('span', { class: 'qs-clock qs-num', dataset: { qsStart: String(started) } },
+      : h('span', { class: 'qs-clock qs-num', title: 'Время матча на момент загрузки страницы' },
           fmt.clock((Date.now() + serverOffset - started) / 1000));
     add(sec, [
       h('dl', { class: 'qs-facts' },
@@ -655,15 +627,13 @@
   }
 
   /* =====================================================================
-   * Сеть: fetch с If-None-Match, таймаутом и сохранением ETag
+   * Сеть: fetch с таймаутом. ETag/If-None-Match не используются: страница
+   * запрашивает каждый эндпоинт один раз, повторных запросов нет.
    * ===================================================================== */
-  var etags = {};
 
-  /* → { changed: false } на 304, { changed: true, data, etag } на 200; бросает при ошибке.
-     ETag сохраняет вызывающий (commitEtag) — только после того, как ответ удалось показать. */
+  /* → { data, meta } на 200; бросает при ошибке. meta — часы сервера из заголовка Date. */
   function getJSON(url) {
     var headers = {};
-    if (etags[url]) headers['If-None-Match'] = etags[url];
     var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, REQUEST_TIMEOUT) : null;
     var sentAt = Date.now();
@@ -671,15 +641,11 @@
       .then(function (res) {
         var date = Date.parse(res.headers.get('Date') || '');
         var meta = { serverNow: isNaN(date) ? null : date, localNow: (sentAt + Date.now()) / 2 };
-        if (res.status === 304) return { changed: false, meta: meta };
         if (!res.ok) throw new Error(url + ': HTTP ' + res.status);
-        return res.json().then(function (data) {
-          return { changed: true, data: data, etag: res.headers.get('ETag'), meta: meta };
-        });
+        return res.json().then(function (data) { return { data: data, meta: meta }; });
       })
       .finally(function () { if (timer) clearTimeout(timer); });
   }
-  function commitEtag(url, r) { if (r.etag) etags[url] = r.etag; }
 
   /* =====================================================================
    * Состояние страницы и рендер по блокам
@@ -694,11 +660,10 @@
 
   var state = {
     live: null,           /* последний ответ /api/live */
-    liveOkAt: 0,          /* когда /api/live последний раз ответил (200 или 304) */
     liveView: null,       /* что сейчас нарисовано в блоке LiveMatch */
     summary: null,        /* последние полученные /api/summary и /api/players — при ошибке не обнуляются */
     players: null,
-    stats: { status: 'loading', updatedAt: 0, retryAt: 0 },
+    stats: { status: 'loading', updatedAt: 0 },
     summaryView: null     /* 'loading' | 'error' | 'data' */
   };
 
@@ -731,16 +696,11 @@
       el.summary.replaceChildren.apply(el.summary, summarySections(state.summary));
       state.summaryView = 'data';
     } else if (s.status === 'error') {
-      if (state.summaryView === 'error') {
-        /* уже показано: только сдвинуть отсчёт, чтобы role="alert" не зачитывался заново */
-        var cd = el.summary.querySelector('[data-qs-countdown]');
-        if (cd) cd.dataset.qsCountdown = String(s.retryAt);
-        return;
-      }
+      if (state.summaryView === 'error') return;
       state.summaryView = 'error';
       el.summary.replaceChildren(h('section', { 'aria-labelledby': 'qs-h-stats' },
         SectionHead('Статистика', null, 'qs-h-stats'),
-        EmptyState('error', s.retryAt, retryNow)));
+        EmptyState('error')));
     } else if (state.summaryView !== 'loading') {
       state.summaryView = 'loading';
       el.summary.replaceChildren.apply(el.summary, summarySections(null));
@@ -756,10 +716,8 @@
     el.players.hidden = missing && !state.summary;
     table.el.hidden = missing;
     if (missing && state.summary) {
-      if (playersError) {
-        playersError.querySelector('[data-qs-countdown]').dataset.qsCountdown = String(s.retryAt);
-      } else {
-        playersError = EmptyState('error', s.retryAt, retryNow);
+      if (!playersError) {
+        playersError = EmptyState('error');
         el.players.appendChild(playersError);
       }
     } else if (playersError) {
@@ -769,22 +727,20 @@
   }
 
   /* ---------- /api/live ---------- */
-  var liveTimer = 0, liveBusy = false;
-
   function liveViewFor(live) {
     var st = live && live.state;
     return st === 'in_progress' || st === 'warmup' || st === 'empty' || st === 'offline' ? st : 'offline';
   }
 
   function updateServerOffset(r) {
-    /* Часы сервера берём из заголовка Date (он есть и у 304). generated_at — время снапшота,
+    /* Часы сервера берём из заголовка Date. generated_at — время снапшота,
        оно не меняется между событиями, поэтому годится лишь как запасной вариант и только когда
        оно впереди локальных часов: такое расхождение — точно сдвиг часов, а не старый снапшот. */
     var next = null;
     if (r.meta.serverNow != null) {
       /* Date отброшены миллисекунды: +500 мс — середина секунды */
       next = r.meta.serverNow + 500 - r.meta.localNow;
-    } else if (r.changed && r.data && r.data.generated_at) {
+    } else if (r.data && r.data.generated_at) {
       var gen = Date.parse(r.data.generated_at);
       if (!isNaN(gen)) next = Math.max(0, gen - r.meta.localNow);
     }
@@ -795,60 +751,34 @@
     }
   }
 
-  /* Следующий запрос планируется после ответа. На скрытой вкладке опрос замирает
-     и возобновляется по visibilitychange. */
-  function pollLive() {
-    clearTimeout(liveTimer);
-    if (document.hidden || liveBusy) return;
-    liveBusy = true;
+  /* Один запрос при загрузке. Ошибка — состояние «недоступен», пока страницу не перезагрузят. */
+  function loadLive() {
     getJSON('/api/live').then(function (r) {
       updateServerOffset(r);
-      if (r.changed) {
-        renderLive(liveViewFor(r.data), r.data);
-        commitEtag('/api/live', r);
-      } else if (state.liveView === 'unavailable' && state.live) {
-        renderLive(liveViewFor(state.live), state.live); /* связь с сайтом вернулась, данные те же */
-      }
-      state.liveOkAt = Date.now();
+      renderLive(liveViewFor(r.data), r.data);
     }).catch(function () {
-      /* Последний ответ держим на экране, пока он не устарел; дальше — «недоступен» */
-      var stale = !state.live || Date.now() - state.liveOkAt > LIVE_STALE_AFTER;
-      if (stale && state.liveView !== 'unavailable') renderLive('unavailable', state.live);
-    }).finally(function () {
-      liveBusy = false;
-      liveTimer = setTimeout(pollLive, LIVE_EVERY);
+      renderLive('unavailable', null);
     });
   }
 
   /* ---------- /api/summary + /api/players ---------- */
-  var statsTimer = 0, statsBusy = false;
-
-  function pollStats() {
-    clearTimeout(statsTimer);
-    if (document.hidden || statsBusy) return;
-    statsBusy = true;
+  function loadStats() {
     var failed = false;
     var summaryReq = getJSON('/api/summary').then(function (r) {
-      if (!r.changed) return;
       if (!r.data || !r.data.day || !r.data.all_time) throw new Error('/api/summary: неожиданный ответ');
-      var prev = state.summary;
       state.summary = r.data;
-      try { renderSummary(true); } catch (e) { state.summary = prev; throw e; }
-      commitEtag('/api/summary', r);
-    }).catch(function () { failed = true; });
+      renderSummary(true);
+    }).catch(function () { state.summary = null; failed = true; });
     var playersReq = getJSON('/api/players').then(function (r) {
-      if (!r.changed) return;
       if (!r.data || !Array.isArray(r.data.players)) throw new Error('/api/players: неожиданный ответ');
       table.setPlayers(r.data.players);
       state.players = r.data.players;
-      commitEtag('/api/players', r);
     }).catch(function () { failed = true; });
 
     Promise.all([summaryReq, playersReq]).then(function () {
       var s = state.stats;
       if (failed) {
         s.status = 'error';
-        s.retryAt = Date.now() + STATS_EVERY;
       } else {
         s.status = 'ok';
         s.updatedAt = Date.now();
@@ -856,12 +786,8 @@
       renderIndicator(el.upd, s);
       renderSummary();
       renderPlayersBlock();
-      statsBusy = false;
-      statsTimer = setTimeout(pollStats, STATS_EVERY);
     });
   }
-
-  function retryNow() { pollStats(); }
 
   /* ---------- Запуск ---------- */
   renderLive('loading', null);
@@ -869,13 +795,6 @@
   table.setLoading(10);
   renderIndicator(el.upd, state.stats);
 
-  pollStats();
-  pollLive();
-  setInterval(tick, 1000);
-
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) return;
-    pollStats();
-    pollLive();
-  });
+  loadStats();
+  loadLive();
 })();
