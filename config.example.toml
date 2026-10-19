@@ -1,0 +1,28 @@
+# Пример конфигурации qlstats. Все секции и поля необязательны.
+# Использование: qlstats --config config.toml run (или QLSTATS_CONFIG=config.toml).
+# Приоритет: флаги CLI > переменные окружения (и .env) > этот файл > умолчания.
+# Файл содержит пароль: chmod 600.
+
+[database]
+path = "./data/qlstats.db"            # QLSTATS_DB_PATH, --db
+
+[zmq]                                 # нужна для run и record
+host = "1.2.3.4"                      # QL_ZMQ_HOST
+port = 27960                          # QL_ZMQ_PORT (обязателен, если задан host)
+user = "stats"                        # QL_ZMQ_USER
+password = "changeme"                 # QL_ZMQ_PASSWORD (обязателен, если задан host)
+
+[http]
+listen = "0.0.0.0:8080"               # QLSTATS_HTTP_ADDR, --http-addr
+# Защита от флуда (README, «Ограничение нагрузки»).
+rate_limit_per_sec = 10               # QLSTATS_RATE_LIMIT_PER_SEC: запросов/с на IP (восстановление квоты); 0 — без per-IP лимита
+rate_limit_burst = 60                 # QLSTATS_RATE_LIMIT_BURST: сколько запросов с IP можно подряд (ёмкость квоты, >= 1)
+max_concurrency = 256                 # QLSTATS_MAX_CONCURRENCY: одновременных запросов на весь сервер, сверх — 503; 0 — без предела
+trust_proxy = false                   # QLSTATS_TRUST_PROXY: IP клиента из X-Forwarded-For/X-Real-IP/Forwarded.
+                                      # Включать ТОЛЬКО за прокси (nginx), иначе клиент подделает IP заголовком.
+request_timeout_secs = 10             # QLSTATS_REQUEST_TIMEOUT_SECS: таймаут запроса, сверх — 503; 0 — без таймаута
+
+[general]
+tz = "Europe/Moscow"                  # QLSTATS_TZ
+live_offline_secs = 15                # QLSTATS_LIVE_OFFLINE_SECS
+# static_dir = "static"               # QLSTATS_STATIC_DIR (dev: статика с диска)

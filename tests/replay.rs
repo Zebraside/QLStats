@@ -176,7 +176,7 @@ fn migration_adds_weapon_kills_to_v1_db() {
     let ver: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap();
-    assert_eq!(ver, 2);
+    assert_eq!(ver, 3);
     // Старые матчи без weapon_kills: таблица строится, fav_weapon пуст.
     let before = store::player_totals(&conn).unwrap();
     assert!(!before.is_empty());

@@ -146,6 +146,9 @@ body {
   display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: var(--fs-md); line-height: 22px; font-weight: 500; color: var(--accent);
 }
+.qs-leaders-item { align-items: center; }
+.qs-emote { flex: none; height: 1.4em; width: auto; vertical-align: middle; margin-left: var(--space-2); }
+@media (prefers-reduced-motion: reduce) { .qs-emote { display: none; } }
 .qs-more {
   font: 500 var(--fs-sm)/18px var(--font-mono); color: var(--ink-muted);
   background: transparent; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);

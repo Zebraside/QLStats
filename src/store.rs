@@ -83,7 +83,14 @@ CREATE TABLE players(steam_id TEXT PRIMARY KEY, last_name TEXT, last_seen INTEGE
 /// У матчей, записанных до миграции, `NULL` до `qlstats recompute`.
 const SCHEMA_V2: &str = "ALTER TABLE match_players ADD COLUMN weapon_kills TEXT;";
 
-const MIGRATIONS: &[&str] = &[SCHEMA_V1, SCHEMA_V2];
+/// Индексы по времени для выборок за произвольный промежуток: `raw_events.received_at`
+/// (Unix-время, мс UTC) и `matches.finished_at` (по нему же считается `day_key`).
+const SCHEMA_V3: &str = "
+CREATE INDEX IF NOT EXISTS raw_events_received_at ON raw_events(received_at);
+CREATE INDEX IF NOT EXISTS matches_finished_at ON matches(finished_at);
+";
+
+const MIGRATIONS: &[&str] = &[SCHEMA_V1, SCHEMA_V2, SCHEMA_V3];
 
 /// Открывает (и при необходимости создаёт) БД, применяет PRAGMA и миграции.
 pub fn open(path: &Path) -> Result<Connection> {

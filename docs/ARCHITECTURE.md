@@ -164,6 +164,7 @@ players(steam_id TEXT PRIMARY KEY, last_name TEXT, last_seen INTEGER);
 
 ## 7. День и полночь по Москве
 
+- **Таймкоды.** `raw_events.received_at` — Unix-время в мс UTC, выставляется получателем в момент приёма фрейма (collector, `replay`; синтетические `_CONNECTED`/`_DISCONNECTED` и `_INVALID` тоже), а не временем сервера QL. Индексы по времени: `raw_events(received_at)` и `matches(finished_at)` (миграция v3). Матчи за период выбираются по `finished_at`; «день» — по `QLSTATS_TZ` (`day_key`). `players.last_seen` — тот же `received_at`. Часы хоста могут шагнуть назад (NTP), поэтому `received_at` монотонен по `id` только при монотонных часах.
 - `day_key` вычисляется один раз при записи матча: `finished_at → Europe/Moscow → YYYY-MM-DD`.
 - В «Статистику дня» попадают засчитанные матчи с `day_key = today_msk()`, где `today_msk()` берётся из инжектируемых часов (trait `Clock`, в тестах — фиксированное время).
 - Снапшот хранит свой `day_key`. Фоновая задача спит до следующей полуночи по Москве (вычисляется через `chrono-tz`) и пересобирает снапшот. Дополнительно при каждом запросе проверяется, что `snapshot.day_key == today_msk()`; при расхождении снапшот пересобирается, что страхует от сдвига часов.

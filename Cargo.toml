@@ -31,14 +31,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "net", "fs"] }
-tower-http = { version = "0.6", features = ["compression-gzip", "trace"] }
+tower = { version = "0.5", features = ["limit", "load-shed", "util"] }
+tower-http = { version = "0.6", features = ["compression-gzip", "timeout", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 zmq = "0.10"
+toml = "1.1.8"
+tower_governor = { version = "0.8", default-features = false, features = ["axum"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
-tower = { version = "0.5", features = ["util"] }
 
 [profile.release]
 lto = "thin"

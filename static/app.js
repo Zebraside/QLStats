@@ -158,9 +158,17 @@
     }
   }
 
+  /* ---------- Badge: декоративный анимированный эмодзи рядом с ником ---------- */
+  function Badge(b) {
+    return h('img', {
+      class: 'qs-emote', src: b.src, alt: b.alt || '', 'aria-hidden': 'true',
+      loading: 'lazy', width: '64', height: '64'
+    });
+  }
+
   /* ---------- LeaderList: все лидеры, больше трёх — сворачиваются в «+N» ---------- */
   var leaderListId = 0;
-  function LeaderList(players, max) {
+  function LeaderList(players, max, badge) {
     max = max || 3;
     var ul = h('ul', {
       class: 'qs-leaders', id: 'qs-leaders-' + (++leaderListId),
@@ -168,7 +176,7 @@
     });
     var hidden = [];
     players.forEach(function (p, i) {
-      var li = h('li', { class: 'qs-leaders-item' }, Nick(p.name));
+      var li = h('li', { class: 'qs-leaders-item' }, Nick(p.name), badge ? Badge(badge) : null);
       if (i >= max) { li.hidden = true; hidden.push(li); }
       ul.appendChild(li);
     });
@@ -194,7 +202,8 @@
   }
 
   /* ---------- StatCard ----------
-     leaders === undefined — карточка без списка лидеров («Матчей сегодня»). */
+     leaders === undefined — карточка без списка лидеров («Матчей сегодня»).
+     badge: { src, alt } — необязательная картинка после ника каждого лидера (не в loading и не без лидеров). */
   function StatCard(o) {
     var card = h('article', { class: 'qs-card qs-plate' });
     var hasLeaders = o.leaders !== undefined;
@@ -215,7 +224,7 @@
       h('p', { class: 'qs-card-value' }, bigNum(v), h('span', { class: 'qs-card-unit' }, fmt.plural(v, o.unit)))
     ]);
     if (hasLeaders) {
-      add(card, leaders.length ? LeaderList(leaders, 3) : h('p', { class: 'qs-card-sub' }, 'нет матчей'));
+      add(card, leaders.length ? LeaderList(leaders, 3, o.badge) : h('p', { class: 'qs-card-sub' }, 'нет матчей'));
     }
     return card;
   }
@@ -607,7 +616,8 @@
     var wins = part.top_wins || {}, kills = part.top_kills || {};
     return h('div', { class: 'qs-cards' },
       StatCard({ label: day ? 'Матчей сегодня' : 'Матчей всего', value: part.matches, unit: M_FORMS, loading: loading }),
-      StatCard({ label: 'Больше всего побед', value: wins.value, unit: W_FORMS, leaders: wins.players || [], loading: loading }),
+      StatCard({ label: 'Больше всего побед', value: wins.value, unit: W_FORMS, leaders: wins.players || [], loading: loading,
+        badge: { src: 'img/emotes/dancer.webp', alt: '' } }),
       StatCard({ label: 'Больше всего убийств', value: kills.value, unit: K_FORMS, leaders: kills.players || [], loading: loading }));
   }
 

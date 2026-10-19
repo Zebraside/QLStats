@@ -1,7 +1,7 @@
 //! HTTP: axum-роутер, снапшоты (готовый JSON + gzip + ETag в ArcSwap), статика, таймер полуночи.
 
 use std::io::Write;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -11,6 +11,7 @@ use anyhow::Result;
 use arc_swap::ArcSwap;
 use axum::Router;
 use axum::body::Body;
+use axum::error_handling::HandleErrorLayer;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
@@ -22,8 +23,18 @@ use rusqlite::Connection;
 use rust_embed::RustEmbed;
 use serde_json::{Value, json};
 use tokio::sync::watch;
+use tower::limit::GlobalConcurrencyLimitLayer;
+use tower::load_shed::LoadShedLayer;
+use tower::load_shed::error::Overloaded;
+use tower::{BoxError, ServiceBuilder};
+use tower_governor::GovernorError;
+use tower_governor::GovernorLayer;
+use tower_governor::governor::GovernorConfigBuilder;
+use tower_governor::key_extractor::{KeyExtractor, PeerIpKeyExtractor, SmartIpKeyExtractor};
+use tower_http::timeout::TimeoutLayer;
 
 use crate::collector::CollectorStats;
+use crate::config::HttpLimits;
 use crate::live::LiveHub;
 use crate::{stats, store};
 
@@ -426,16 +437,134 @@ async fn static_file(State(st): State<Arc<AppState>>, uri: Uri, headers: HeaderM
 
 // ---------------------------------------------------------------- router & tasks
 
-pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+/// Как часто чистить хранилище per-IP квот от давно не приходивших клиентов.
+const RATE_LIMIT_CLEANUP: Duration = Duration::from_secs(60);
+
+/// Роутер со всеми слоями. Снаружи внутрь: trace → timeout → load shed +
+/// concurrency limit → per-IP rate limit → compression → обработчики.
+///
+/// `Router::layer` оборачивает каждый маршрут отдельно, поэтому предел
+/// одновременных запросов — `GlobalConcurrencyLimitLayer` (общий семафор на все
+/// маршруты), а квоты governor общие через `Arc` в его конфиге.
+///
+/// Без `trust_proxy` ключ квоты — peer IP из `ConnectInfo<SocketAddr>`: сервер
+/// надо запускать через `into_make_service_with_connect_info` (см. [`serve`]).
+pub fn router(state: Arc<AppState>, limits: &HttpLimits) -> Router {
+    let mut app = Router::new()
         .route("/api/live", get(api_live))
         .route("/api/summary", get(api_summary))
         .route("/api/players", get(api_players))
         .route("/healthz", get(healthz))
         .fallback(get(static_file))
-        .layer(tower_http::compression::CompressionLayer::new().gzip(true))
-        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(tower_http::compression::CompressionLayer::new().gzip(true));
+    if limits.rate_limit_per_sec > 0 {
+        app = if limits.trust_proxy {
+            with_rate_limit(app, SmartIpKeyExtractor, limits)
+        } else {
+            with_rate_limit(app, PeerIpKeyExtractor, limits)
+        };
+    }
+    if limits.max_concurrency > 0 {
+        // Переполнение — сразу 503, без очереди.
+        app = app.layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(handle_overload))
+                .layer(LoadShedLayer::new())
+                .layer(GlobalConcurrencyLimitLayer::new(limits.max_concurrency)),
+        );
+    }
+    if limits.request_timeout_secs > 0 {
+        app = app.layer(TimeoutLayer::with_status_code(
+            StatusCode::SERVICE_UNAVAILABLE,
+            Duration::from_secs(limits.request_timeout_secs),
+        ));
+    }
+    app.layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(state)
+}
+
+/// Per-IP квота (GCRA): `rate_limit_burst` запросов подряд, восстановление
+/// `rate_limit_per_sec` в секунду. Превышение — 429 с `Retry-After`.
+fn with_rate_limit<K>(
+    app: Router<Arc<AppState>>,
+    key: K,
+    limits: &HttpLimits,
+) -> Router<Arc<AppState>>
+where
+    K: KeyExtractor<Key = IpAddr> + Send + Sync + 'static,
+{
+    // В tower_governor `per_second(n)` — это период «один запрос раз в n секунд»,
+    // поэтому период задаём сами.
+    let period = Duration::from_nanos((1_000_000_000 / limits.rate_limit_per_sec).max(1));
+    let config = GovernorConfigBuilder::default()
+        .key_extractor(key)
+        .period(period)
+        .burst_size(limits.rate_limit_burst.max(1))
+        .finish()
+        .expect("период и ёмкость квоты не нулевые");
+    // Раз в минуту выбрасываем из хранилища квот IP, которые давно не приходили,
+    // чтобы память не росла. Задача завершается вместе с роутером (по `Weak`).
+    let limiter = Arc::downgrade(config.limiter());
+    spawn_periodic(move || match limiter.upgrade() {
+        Some(l) => {
+            l.retain_recent();
+            l.shrink_to_fit();
+            true
+        }
+        None => false,
+    });
+    app.layer(GovernorLayer::new(config).error_handler(rate_limit_response))
+}
+
+/// Раз в [`RATE_LIMIT_CLEANUP`] вызывает `step`, пока тот возвращает `true`.
+/// Вне tokio-рантайма ничего не делает.
+fn spawn_periodic(mut step: impl FnMut() -> bool + Send + 'static) {
+    let Ok(rt) = tokio::runtime::Handle::try_current() else {
+        return;
+    };
+    rt.spawn(async move {
+        let mut tick = tokio::time::interval(RATE_LIMIT_CLEANUP);
+        tick.tick().await;
+        loop {
+            tick.tick().await;
+            if !step() {
+                break;
+            }
+        }
+    });
+}
+
+fn rate_limit_response(e: GovernorError) -> Response {
+    match e {
+        GovernorError::TooManyRequests { wait_time, .. } => (
+            StatusCode::TOO_MANY_REQUESTS,
+            [
+                // governor округляет вниз; `Retry-After: 0` провоцирует немедленный повтор.
+                (header::RETRY_AFTER, wait_time.max(1).to_string()),
+                (header::CACHE_CONTROL, "no-store".to_string()),
+            ],
+            "слишком много запросов\n",
+        )
+            .into_response(),
+        other => Response::<Body>::from(other),
+    }
+}
+
+async fn handle_overload(err: BoxError) -> Response {
+    if err.is::<Overloaded>() {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [
+                (header::RETRY_AFTER, "1"),
+                (header::CACHE_CONTROL, "no-store"),
+            ],
+            "сервер перегружен\n",
+        )
+            .into_response()
+    } else {
+        tracing::error!(error = %err, "ошибка middleware");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
 }
 
 /// Время до следующей полуночи в `tz`.
@@ -503,11 +632,14 @@ pub fn spawn_background(state: Arc<AppState>, mut data_rx: watch::Receiver<u64>)
 pub async fn serve(
     state: Arc<AppState>,
     addr: SocketAddr,
+    limits: &HttpLimits,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!(%addr, "HTTP-сервер запущен");
-    axum::serve(listener, router(state))
+    tracing::info!(%addr, ?limits, "HTTP-сервер запущен");
+    // ConnectInfo нужен PeerIpKeyExtractor'у (и SmartIpKeyExtractor'у без заголовков).
+    let app = router(state, limits).into_make_service_with_connect_info::<SocketAddr>();
+    axum::serve(listener, app)
         .with_graceful_shutdown(shutdown)
         .await?;
     Ok(())

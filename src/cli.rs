@@ -1,5 +1,6 @@
 //! CLI: `run`, `recompute`, `record`, `replay`.
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use tokio::sync::watch;
 use tracing_subscriber::EnvFilter;
 
 use crate::collector::{self, CollectorStats};
-use crate::config::{self, Config};
+use crate::config::{Config, Sources};
 use crate::live::{LiveHub, LiveState};
 use crate::replay;
 use crate::store::{self, Writer};
@@ -23,12 +24,18 @@ use crate::web::{self, AppState, SystemClock};
 #[derive(Debug, Parser)]
 #[command(name = "qlstats", version, about = "Статистика Quake Live по ZMQ")]
 pub struct Cli {
+    /// TOML-файл конфигурации (по умолчанию не читается).
+    #[arg(long, global = true, env = "QLSTATS_CONFIG", value_name = "PATH")]
+    pub config: Option<PathBuf>,
     /// Файл с переменными окружения (по умолчанию ./.env, если есть).
-    #[arg(long, global = true)]
+    #[arg(long, global = true, value_name = "PATH")]
     pub env_file: Option<PathBuf>,
-    /// Путь к SQLite (перекрывает QLSTATS_DB_PATH).
-    #[arg(long, global = true)]
+    /// Путь к SQLite (перекрывает QLSTATS_DB_PATH и database.path).
+    #[arg(long, global = true, value_name = "PATH")]
     pub db: Option<PathBuf>,
+    /// Адрес HTTP-сервера (перекрывает QLSTATS_HTTP_ADDR и http.listen).
+    #[arg(long, global = true, value_name = "ADDR")]
+    pub http_addr: Option<SocketAddr>,
     #[command(subcommand)]
     pub cmd: Cmd,
 }
@@ -92,13 +99,15 @@ pub fn main() -> ExitCode {
     }
 }
 
-fn load_config(cli: &Cli) -> Result<Config> {
-    config::load_env_file(cli.env_file.as_deref())?;
-    let mut cfg = Config::from_env()?;
-    if let Some(db) = &cli.db {
-        cfg.db_path = db.clone();
+impl Cli {
+    fn sources(&self) -> Sources {
+        Sources {
+            config_file: self.config.clone(),
+            env_file: self.env_file.clone(),
+            db: self.db.clone(),
+            http_addr: self.http_addr,
+        }
     }
-    Ok(cfg)
 }
 
 fn stop_flag() -> Arc<AtomicBool> {
@@ -109,7 +118,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 }
 
 fn dispatch(cli: Cli) -> Result<()> {
-    let cfg = load_config(&cli)?;
+    let cfg = Config::load(&cli.sources())?;
     match cli.cmd {
         Cmd::Run => run(cfg),
         Cmd::Recompute => recompute(cfg),
@@ -255,7 +264,7 @@ fn run(cfg: Config) -> Result<()> {
             cfg.static_dir.clone(),
         )?;
         web::spawn_background(state.clone(), data_rx);
-        web::serve(state, cfg.http_addr, shutdown_signal()).await
+        web::serve(state, cfg.http_addr, &cfg.http_limits, shutdown_signal()).await
     });
     stop.store(true, Ordering::SeqCst);
     let _ = coll_h.join();

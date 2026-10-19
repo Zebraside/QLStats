@@ -1,15 +1,19 @@
-//! HTTP-тесты роутера: формат JSON, ETag/304, gzip, смена суток.
+//! HTTP-тесты роутера: формат JSON, ETag/304, gzip, смена суток, ограничение нагрузки.
 
 mod common;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::Router;
 use axum::body::Body;
+use axum::extract::ConnectInfo;
 use axum::http::{Request, StatusCode, header};
 use chrono::Duration;
 use common::*;
 use http_body_util::BodyExt;
 use qlstats::collector::CollectorStats;
+use qlstats::config::HttpLimits;
 use qlstats::live::LiveHub;
 use qlstats::store;
 use qlstats::web::{self, AppState, Clock, FixedClock};
@@ -59,8 +63,9 @@ async fn get(
     if gzip {
         req = req.header(header::ACCEPT_ENCODING, "gzip");
     }
-    let resp = web::router(env.state.clone())
-        .oneshot(req.body(Body::empty()).unwrap())
+    // Лимиты по умолчанию: ConnectInfo подставляем, как это делает `serve`.
+    let resp = web::router(env.state.clone(), &HttpLimits::default())
+        .oneshot(with_peer(req.body(Body::empty()).unwrap(), "10.0.0.1"))
         .await
         .unwrap();
     let status = resp.status();
@@ -73,6 +78,143 @@ async fn get(
         .to_bytes()
         .to_vec();
     (status, headers, body)
+}
+
+/// Добавляет peer-адрес, который в реальном сервере кладёт
+/// `into_make_service_with_connect_info`.
+fn with_peer(mut req: Request<Body>, ip: &str) -> Request<Body> {
+    let addr = SocketAddr::new(ip.parse().unwrap(), 40000);
+    req.extensions_mut().insert(ConnectInfo(addr));
+    req
+}
+
+fn req(uri: &str, peer: &str, xff: Option<&str>) -> Request<Body> {
+    let mut b = Request::builder().uri(uri);
+    if let Some(x) = xff {
+        b = b.header("x-forwarded-for", x);
+    }
+    with_peer(b.body(Body::empty()).unwrap(), peer)
+}
+
+/// Статус ответа и `Retry-After` (если есть) от уже собранного роутера.
+async fn status(app: &Router, r: Request<Body>) -> (StatusCode, Option<u64>) {
+    let resp = app.clone().oneshot(r).await.unwrap();
+    let retry = resp
+        .headers()
+        .get(header::RETRY_AFTER)
+        .map(|v| v.to_str().unwrap().parse().unwrap());
+    (resp.status(), retry)
+}
+
+fn rate_limits(trust_proxy: bool) -> HttpLimits {
+    HttpLimits {
+        rate_limit_per_sec: 1,
+        rate_limit_burst: 2,
+        trust_proxy,
+        ..HttpLimits::disabled()
+    }
+}
+
+#[tokio::test]
+async fn rate_limit_per_peer_ip() {
+    let env = setup();
+    let app = web::router(env.state.clone(), &rate_limits(false));
+    for _ in 0..2 {
+        let (st, _) = status(&app, req("/api/live", "10.0.0.1", None)).await;
+        assert_eq!(st, StatusCode::OK);
+    }
+    let (st, retry) = status(&app, req("/api/live", "10.0.0.1", None)).await;
+    assert_eq!(st, StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry.is_some_and(|s| s >= 1), "{retry:?}");
+    // Другой IP — своя квота; /healthz под тем же лимитом.
+    let (st, _) = status(&app, req("/healthz", "10.0.0.2", None)).await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, _) = status(&app, req("/healthz", "10.0.0.1", None)).await;
+    assert_eq!(st, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
+async fn rate_limit_trust_proxy_uses_forwarded_for() {
+    let env = setup();
+    let app = web::router(env.state.clone(), &rate_limits(true));
+    // Все запросы приходят от прокси 127.0.0.1, клиенты различаются по XFF.
+    for _ in 0..2 {
+        let (st, _) = status(&app, req("/api/live", "127.0.0.1", Some("203.0.113.5"))).await;
+        assert_eq!(st, StatusCode::OK);
+    }
+    let (st, retry) = status(&app, req("/api/live", "127.0.0.1", Some("203.0.113.5"))).await;
+    assert_eq!(st, StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry.is_some_and(|s| s >= 1), "{retry:?}");
+    let (st, _) = status(&app, req("/api/live", "127.0.0.1", Some("203.0.113.6"))).await;
+    assert_eq!(st, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn rate_limit_ignores_forwarded_for_without_trust_proxy() {
+    let env = setup();
+    let app = web::router(env.state.clone(), &rate_limits(false));
+    // Разные XFF с одного peer делят одну квоту.
+    for xff in ["203.0.113.5", "203.0.113.6"] {
+        let (st, _) = status(&app, req("/api/live", "10.0.0.1", Some(xff))).await;
+        assert_eq!(st, StatusCode::OK);
+    }
+    let (st, _) = status(&app, req("/api/live", "10.0.0.1", Some("203.0.113.7"))).await;
+    assert_eq!(st, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn load_shed_when_concurrency_exhausted() {
+    let env = setup();
+    let limits = HttpLimits {
+        max_concurrency: 1,
+        ..HttpLimits::disabled()
+    };
+    let app = web::router(env.state.clone(), &limits);
+
+    // /healthz ждёт мьютекс БД в spawn_blocking: держим его, и медленный запрос
+    // занимает единственный слот, пока мы не отпустим.
+    // Мьютекс держит отдельный поток (не держим std-блокировку через await);
+    // при панике теста `release` уничтожается и поток отпускает мьютекс.
+    let (release, release_rx) = std::sync::mpsc::channel::<()>();
+    let (locked_tx, locked_rx) = std::sync::mpsc::channel::<()>();
+    let st = env.state.clone();
+    let holder = std::thread::spawn(move || {
+        let _g = st.db.lock().unwrap();
+        locked_tx.send(()).unwrap();
+        let _ = release_rx.recv();
+    });
+    locked_rx.recv().unwrap();
+    let spawn_slow = || tokio::spawn(app.clone().oneshot(req("/healthz", "10.0.0.1", None)));
+    let mut slow = spawn_slow();
+
+    // /api/live БД не трогает. Пока медленный запрос не занял слот, ответ 200;
+    // как только занял — 503 сразу, без ожидания в очереди. Пауза перед пробой
+    // даёт медленному запросу дойти до обработчика; если проба всё же успела
+    // занять слот первой и медленный запрос сам получил 503, запускаем его заново.
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    let shed = loop {
+        assert!(tokio::time::Instant::now() < deadline, "503 не дождались");
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        if slow.is_finished() {
+            let resp = slow.await.unwrap().unwrap();
+            assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+            slow = spawn_slow();
+            continue;
+        }
+        let (st, retry) = status(&app, req("/api/live", "10.0.0.2", None)).await;
+        if st == StatusCode::SERVICE_UNAVAILABLE {
+            break retry;
+        }
+        assert_eq!(st, StatusCode::OK);
+    };
+    assert_eq!(shed, Some(1));
+
+    drop(release);
+    holder.join().unwrap();
+    let resp = slow.await.unwrap().unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let (st, _) = status(&app, req("/api/live", "10.0.0.2", None)).await;
+    assert_eq!(st, StatusCode::OK);
 }
 
 #[tokio::test]

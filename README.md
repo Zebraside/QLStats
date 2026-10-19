@@ -23,20 +23,32 @@ cargo fmt
 
 ## Конфигурация
 
-Переменные окружения или файл `.env` в рабочем каталоге (путь можно задать флагом `--env-file`). Уже заданные переменные окружения имеют приоритет над `.env`. Шаблон — `.env.example`.
+Три источника, все необязательны:
 
-| Переменная | По умолчанию | Назначение |
-|------------|--------------|------------|
-| `QL_ZMQ_HOST` | — | Адрес QL-сервера. Нужен для `run` и `record`. |
-| `QL_ZMQ_PORT` | — | Порт `zmq_stats_port`. |
-| `QL_ZMQ_USER` | `stats` | Логин PLAIN. |
-| `QL_ZMQ_PASSWORD` | — | Пароль `zmq_stats_password`. В логи не пишется. |
-| `QLSTATS_DB_PATH` | `./data/qlstats.db` | Файл SQLite (каталог создаётся). Флаг `--db` перекрывает. |
-| `QLSTATS_HTTP_ADDR` | `0.0.0.0:8080` | Адрес HTTP-сервера. |
-| `QLSTATS_TZ` | `Europe/Moscow` | Часовой пояс «дня» и полуночи. |
-| `QLSTATS_LIVE_OFFLINE_SECS` | `15` | Через сколько секунд без связи live показывает «нет связи». |
-| `QLSTATS_STATIC_DIR` | — | Dev-режим: отдавать статику с диска из этого каталога, а не вшитую. |
-| `RUST_LOG` | `info` | Уровень логов (`tracing`), например `info,qlstats=debug`. |
+- **TOML-файл** — только если задан флагом `--config PATH` или переменной `QLSTATS_CONFIG` (сама `QLSTATS_CONFIG` читается до загрузки `.env`, поэтому в `.env` её задавать бесполезно). Шаблон — `config.example.toml`. Неизвестные ключи — ошибка. В ошибке разбора указываются путь, строка и столбец, но не текст строки (там может быть пароль).
+- **Переменные окружения** и файл `.env` в рабочем каталоге (путь можно задать флагом `--env-file`). Уже заданные переменные окружения имеют приоритет над `.env`. Пустое значение считается незаданным. Шаблон — `.env.example`.
+- **Флаги CLI** `--db`, `--http-addr`.
+
+Приоритет (строго): **флаги CLI > переменные окружения (включая `.env`) > TOML-файл > значения по умолчанию**. Источники смешиваются по полям: например, хост и порт можно задать в TOML, а пароль — в `QL_ZMQ_PASSWORD`.
+
+| TOML-ключ | Переменная | Флаг | По умолчанию | Назначение |
+|-----------|------------|------|--------------|------------|
+| `zmq.host` | `QL_ZMQ_HOST` | — | — | Адрес QL-сервера. Нужен для `run` и `record`. |
+| `zmq.port` | `QL_ZMQ_PORT` | — | — | Порт `zmq_stats_port`. Обязателен, если задан хост. |
+| `zmq.user` | `QL_ZMQ_USER` | — | `stats` | Логин PLAIN. |
+| `zmq.password` | `QL_ZMQ_PASSWORD` | — | — | Пароль `zmq_stats_password`. Обязателен, если задан хост. В логи и тексты ошибок не попадает. |
+| `database.path` | `QLSTATS_DB_PATH` | `--db` | `./data/qlstats.db` | Файл SQLite (каталог создаётся). |
+| `http.listen` | `QLSTATS_HTTP_ADDR` | `--http-addr` | `0.0.0.0:8080` | Адрес HTTP-сервера. |
+| `general.tz` | `QLSTATS_TZ` | — | `Europe/Moscow` | Часовой пояс «дня» и полуночи. |
+| `general.live_offline_secs` | `QLSTATS_LIVE_OFFLINE_SECS` | — | `15` | Через сколько секунд без связи live показывает «нет связи». |
+| `general.static_dir` | `QLSTATS_STATIC_DIR` | — | — | Dev-режим: отдавать статику с диска из этого каталога, а не вшитую. |
+| `http.rate_limit_per_sec` | `QLSTATS_RATE_LIMIT_PER_SEC` | — | `10` | Per-IP лимит: сколько запросов в секунду восстанавливается в квоте клиента. `0` — per-IP лимит выключен. |
+| `http.rate_limit_burst` | `QLSTATS_RATE_LIMIT_BURST` | — | `60` | Ёмкость per-IP квоты: сколько запросов подряд можно сделать с одного IP. Не меньше `1`. |
+| `http.max_concurrency` | `QLSTATS_MAX_CONCURRENCY` | — | `256` | Предел одновременно обрабатываемых запросов на весь сервер, сверх него — `503`. `0` — без предела, максимум `1000000`. |
+| `http.trust_proxy` | `QLSTATS_TRUST_PROXY` | — | `false` | Брать IP клиента из `X-Forwarded-For` / `X-Real-IP` / `Forwarded`. Только за обратным прокси, см. «Ограничение нагрузки». Принимает `true/false`, `1/0`, `yes/no`, `on/off`. |
+| `http.request_timeout_secs` | `QLSTATS_REQUEST_TIMEOUT_SECS` | — | `10` | Таймаут обработки запроса, сверх него — `503`. `0` — без таймаута. |
+| — | `RUST_LOG` | — | `info` | Уровень логов (`tracing`), например `info,qlstats=debug`. |
+| — | `QLSTATS_CONFIG` | `--config` | — | Путь к TOML-файлу. |
 
 ## Команды
 
@@ -48,7 +60,12 @@ qlstats replay file.jsonl [--db path] [--dump]
 qlstats replay file.jsonl --publish tcp://127.0.0.1:28556 [--speed 2] [--loop]
 ```
 
-Общие флаги: `--env-file PATH`, `--db PATH`.
+Общие флаги (ставятся до или после подкоманды):
+
+- `--config PATH` — TOML-файл конфигурации (или `QLSTATS_CONFIG`);
+- `--env-file PATH` — файл с переменными окружения (по умолчанию `./.env`, если есть);
+- `--db PATH` — файл SQLite, перекрывает `QLSTATS_DB_PATH` и `database.path`;
+- `--http-addr ADDR` — адрес HTTP-сервера, перекрывает `QLSTATS_HTTP_ADDR` и `http.listen`.
 
 - **run** — подключается к ZMQ (PLAIN, переподключение, socket monitor), пишет каждое сообщение в `raw_events`, по `MATCH_REPORT` считает матч, держит live-состояние в памяти, отдаёт HTTP. При старте применяет миграции и восстанавливает live-состояние из `raw_events`. Останавливается по SIGINT/SIGTERM.
 - **recompute** — делает бэкап `VACUUM INTO <db>.bak-YYYYMMDD-HHMMSS`, затем одной транзакцией удаляет `matches`, `match_players`, `match_player_weapons`, `deaths`, `players` и строит их заново из `raw_events`. Лучше запускать при остановленном сервисе. Работающий сервис увидит новые цифры после следующего матча, полуночи или перезапуска.
@@ -68,6 +85,47 @@ qlstats replay file.jsonl --publish tcp://127.0.0.1:28556 [--speed 2] [--loop]
 
 Форматы — ARCHITECTURE.md, раздел 9. Ответы `/api/*` заранее сериализованы и сжаты (gzip) в снапшоте (`ArcSwap`), имеют `ETag` и `Cache-Control: no-cache`; при совпадении `If-None-Match` сервер отвечает `304`. Снапшот статистики пересобирается после каждого завершённого матча и в полночь; live — при изменении состояния (дебаунс 200 мс) и при смене флага offline.
 
+### Ограничение нагрузки
+
+Все пути, включая `/healthz`, проходят через одни и те же слои (снаружи внутрь): журнал запросов → таймаут → предел одновременных запросов → per-IP лимит → gzip → обработчик. Параметры — в таблице раздела «Конфигурация» (секция `[http]`).
+
+- **Per-IP лимит** (`tower_governor`, алгоритм GCRA): с одного IP можно сделать `rate_limit_burst` запросов подряд, дальше квота восстанавливается со скоростью `rate_limit_per_sec` в секунду. Сверх квоты — `429 Too Many Requests` с заголовком `Retry-After` (секунды, не меньше 1). Записи о давно не приходивших IP удаляются раз в минуту.
+- **Перегрузка**: одновременно обрабатывается не больше `max_concurrency` запросов на весь сервер; лишний запрос сразу получает `503 Service Unavailable` с `Retry-After: 1`, очередь не копится.
+- **Таймаут**: запрос, который обрабатывается дольше `request_timeout_secs`, прерывается с ответом `503`.
+
+Умолчания (10 запросов/с, 60 подряд, 256 одновременных) рассчитаны с большим запасом: зритель опрашивает API примерно раз в несколько секунд, а в нагрузочном тесте 300 зрителей давали около 85 RPS на весь сервер (`docs/perf/2026-10-18-stress.md`).
+
+**Один IP — много зрителей.** Лимит считается по IP, поэтому зрители за одним NAT (локальная сеть, общежитие, мобильный оператор с CGNAT) делят одну квоту. Если такое ожидается, поднимите `rate_limit_burst` и `rate_limit_per_sec` или выключите per-IP лимит (`rate_limit_per_sec = 0`). То же самое, только хуже, происходит за обратным прокси: все запросы приходят с `127.0.0.1`, и без `trust_proxy` весь сайт получает одну квоту на всех — за nginx включайте `trust_proxy = true`.
+
+**`trust_proxy` только за прокси.** При `trust_proxy = true` IP клиента берётся из `X-Forwarded-For` (первый адрес в списке), затем `X-Real-IP`, затем `Forwarded`, и только если их нет — из адреса соединения. Если сервис при этом доступен напрямую, без прокси, любой клиент подставит в заголовок произвольный IP и обойдёт лимит. Поэтому слушайте только `127.0.0.1` (`http.listen = "127.0.0.1:8080"`) или закройте порт фаерволом, а в nginx **перезаписывайте** заголовок, а не дописывайте к нему: с `$proxy_add_x_forwarded_for` первым в списке останется адрес, присланный самим клиентом.
+
+**От DDoS приложение не защищает.** Эти лимиты отсекают одного-нескольких назойливых клиентов и не дают сервису упасть под всплеском запросов. От объёмных атак — насыщение канала, SYN-flood, тысячи IP ботнета — они не помогают: пакеты доходят до машины, занимают канал и сокеты раньше, чем запрос попадёт в приложение. Это задача уровня перед сервисом: nginx (`limit_req`, `limit_conn`), фаервол (`nftables`/`iptables`, SYN cookies) или CDN вроде Cloudflare. Пример для nginx:
+
+```nginx
+# http { ... }
+limit_req_zone  $binary_remote_addr zone=qlstats_req:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=qlstats_conn:10m;
+
+server {
+    listen 80;
+    server_name stats.example.org;
+
+    location / {
+        limit_req  zone=qlstats_req burst=60 nodelay;
+        limit_conn qlstats_conn 20;
+        limit_req_status  429;
+        limit_conn_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host            $host;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # перезаписать, не дописывать
+    }
+}
+```
+
+При такой схеме сервис запускают с `http.listen = "127.0.0.1:8080"` и `trust_proxy = true`.
+
 ## Деплой (systemd)
 
 ```sh
@@ -75,6 +133,15 @@ sudo useradd --system --home /var/lib/qlstats --create-home qlstats
 sudo install -m 755 target/release/qlstats /usr/local/bin/qlstats
 sudo install -m 600 -o qlstats .env /etc/qlstats.env     # QLSTATS_DB_PATH=/var/lib/qlstats/data/qlstats.db
 ```
+
+Вместо `EnvironmentFile` можно использовать TOML (`database.path = "/var/lib/qlstats/data/qlstats.db"` и т. д.):
+
+```sh
+sudo install -d -m 755 /etc/qlstats
+sudo install -m 600 -o qlstats config.toml /etc/qlstats/config.toml   # из config.example.toml
+```
+
+и в юните `ExecStart=/usr/local/bin/qlstats --config /etc/qlstats/config.toml run` без строки `EnvironmentFile`. Переменные окружения, если заданы, всё равно перекрывают значения из файла.
 
 `/etc/systemd/system/qlstats.service`:
 
@@ -93,6 +160,8 @@ Environment=RUST_LOG=info
 ExecStart=/usr/local/bin/qlstats run
 Restart=always
 RestartSec=3
+# Запас по файловым дескрипторам: каждое HTTP-соединение — один fd.
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
@@ -103,6 +172,8 @@ sudo systemctl daemon-reload && sudo systemctl enable --now qlstats
 journalctl -u qlstats -f
 ```
 
+Время в БД. `raw_events.received_at` — Unix-время в миллисекундах UTC; его выставляет получатель (collector, `replay`) в момент приёма фрейма, это не время сервера QL. Колонка проиндексирована (`raw_events_received_at`, миграция v3), поэтому выборки по периоду дешёвые. Матчи за период фильтруются по `matches.finished_at` (мс UTC, индекс `matches_finished_at`; `started_at` пуст у матча без `MATCH_STARTED`, такой матч не засчитывается). «День» для сводок считается по `QLSTATS_TZ` (`matches.day_key`).
+
 Бэкап: раз в сутки `sqlite3 qlstats.db "VACUUM INTO '/backup/qlstats-$(date +%F).db'"` (cron или systemd-timer). Копировать файл БД через `cp` при работающем процессе нельзя (WAL). Главная ценность — `raw_events`, остальное восстанавливает `qlstats recompute`. События хранятся как компактный JSON; базу, записанную версией до 2026-10-18 (отступы сохранялись как есть), можно ужать один раз при остановленном сервисе: `sqlite3 qlstats.db "UPDATE raw_events SET payload = json(payload) WHERE json_valid(payload); VACUUM;"`. После обновления версии с изменёнными правилами учёта запустите `qlstats recompute`. Например, колонка «Любимое оружие» (миграция БД v2, поле `fav_weapon` в `/api/players`) для матчей, записанных до обновления, заполняется только после `recompute`; до этого у таких игроков `fav_weapon` равно `null`.
 
 ## Структура кода
@@ -111,7 +182,7 @@ journalctl -u qlstats -f
 src/
   main.rs       точка входа (cli::main)
   lib.rs        модули
-  config.rs     env/.env, маскирование пароля
+  config.rs     слои конфигурации TOML → env/.env → CLI (PartialConfig, resolve), маскирование пароля
   model.rs      serde-типы событий, терпимые десериализаторы
   stats.rs      чистые правила учёта: классификация смертей, стрики, победители, точность, counted, day_key
   store.rs      SQLite: миграции, writer, finalize_match, recompute, запросы агрегатов
@@ -155,7 +226,7 @@ tests/
 20. **`record`** для неразобранного фрейма пишет `"type": "_INVALID"` вместе с `"raw"`.
 21. **`replay`:** `--dump` дополнительно выводит `matches`; у `--publish` есть флаг `--loop` и ZAP-обработчик с проверкой пароля.
 22. **Переподключение:** сокет и контекст пересоздаются, если 60 с нет успешного handshake или 30 мин тишины при живом соединении (WARN после 10 мин тишины); пауза между попытками растёт от 1 до 30 с.
-23. **Переменные `QL_ZMQ_*`** обязательны только для `run` и `record`. Добавлена `QLSTATS_STATIC_DIR`.
+23. **Переменные `QL_ZMQ_*`** обязательны только для `run` и `record`. Добавлена `QLSTATS_STATIC_DIR`. Сверх документа — TOML-файл (`--config`) и флаг `--http-addr`.
 24. **Смена суток** при запросе (`snapshot.day_key != today`) пересобирает снапшот синхронно (под мьютексом, один раз).
 
 ## Известные ограничения и недоделки
