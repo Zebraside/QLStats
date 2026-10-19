@@ -1,0 +1,15 @@
+# QLStats: docker compose up -d
+# Перед запуском: создайте папку с config.toml (README, «Запуск в Docker», шаг 1)
+# и поправьте путь к ней, порт и user ниже.
+services:
+  qlstats:
+    image: totekm/qlstats:latest
+    container_name: qlstats
+    restart: unless-stopped
+    user: "1000:1000"             # ваш uid:gid (id -u / id -g); владелец папки с данными
+    ports:
+      - "8080:8080"               # слева — порт, открытый на сервере; справа всегда 8080
+    volumes:
+      - /srv/qlstats:/data        # config.toml и база qlstats.db
+    # environment:
+    #   RUST_LOG: info,qlstats=debug

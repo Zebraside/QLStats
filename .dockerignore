@@ -1,0 +1,6 @@
+# В образ попадают только Cargo.toml, Cargo.lock, src/ и static/ (см. COPY в Dockerfile).
+*
+!Cargo.toml
+!Cargo.lock
+!src/
+!static/

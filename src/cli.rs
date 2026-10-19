@@ -24,8 +24,8 @@ use crate::web::{self, AppState, SystemClock};
 #[derive(Debug, Parser)]
 #[command(name = "qlstats", version, about = "Статистика Quake Live по ZMQ")]
 pub struct Cli {
-    /// TOML-файл конфигурации (по умолчанию не читается).
-    #[arg(long, global = true, env = "QLSTATS_CONFIG", value_name = "PATH")]
+    /// TOML-файл конфигурации (по умолчанию не читается) [env: QLSTATS_CONFIG].
+    #[arg(long, global = true, value_name = "PATH")]
     pub config: Option<PathBuf>,
     /// Файл с переменными окружения (по умолчанию ./.env, если есть).
     #[arg(long, global = true, value_name = "PATH")]
@@ -102,7 +102,14 @@ pub fn main() -> ExitCode {
 impl Cli {
     fn sources(&self) -> Sources {
         Sources {
-            config_file: self.config.clone(),
+            // Переменная читается вручную, а не через clap `env`: пустое значение
+            // (QLSTATS_CONFIG=) должно означать «не задано», как у остальных переменных,
+            // чтобы в Docker можно было отключить конфиг, зашитый в образ (ENV).
+            config_file: self.config.clone().or_else(|| {
+                std::env::var_os("QLSTATS_CONFIG")
+                    .filter(|v| !v.is_empty())
+                    .map(PathBuf::from)
+            }),
             env_file: self.env_file.clone(),
             db: self.db.clone(),
             http_addr: self.http_addr,
