@@ -213,7 +213,7 @@ docker run --rm -v /srv/qlstats:/data totekm/qlstats:latest --help
 docker stop qlstats && docker run --rm -v /srv/qlstats:/data totekm/qlstats:latest recompute && docker start qlstats
 ```
 
-Бэкап БД работающего сервиса — через `sqlite3` на хосте (копировать файл `cp` нельзя, см. раздел «Деплой»):
+Бэкап БД работающего сервиса — через `sqlite3` на хосте (копировать файл `cp` нельзя, см. раздел «Деплой»). Это безопасно на Linux-сервере, где контейнер и `sqlite3` работают на одном ядре. На macOS с Docker Desktop или colima базу работающего контейнера с хоста открывать нельзя: том проходит через virtiofs, блокировки SQLite не работают между VM и хостом, файл повреждается.
 
 ```bash
 sqlite3 /srv/qlstats/qlstats.db "VACUUM INTO '/backup/qlstats-$(date +%F).db'"
