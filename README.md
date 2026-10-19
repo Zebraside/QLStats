@@ -103,7 +103,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now qlstats
 journalctl -u qlstats -f
 ```
 
-Бэкап: раз в сутки `sqlite3 qlstats.db "VACUUM INTO '/backup/qlstats-$(date +%F).db'"` (cron или systemd-timer). Копировать файл БД через `cp` при работающем процессе нельзя (WAL). Главная ценность — `raw_events`, остальное восстанавливает `qlstats recompute`. После обновления версии с изменёнными правилами учёта запустите `qlstats recompute`. Например, колонка «Любимое оружие» (миграция БД v2, поле `fav_weapon` в `/api/players`) для матчей, записанных до обновления, заполняется только после `recompute`; до этого у таких игроков `fav_weapon` равно `null`.
+Бэкап: раз в сутки `sqlite3 qlstats.db "VACUUM INTO '/backup/qlstats-$(date +%F).db'"` (cron или systemd-timer). Копировать файл БД через `cp` при работающем процессе нельзя (WAL). Главная ценность — `raw_events`, остальное восстанавливает `qlstats recompute`. События хранятся как компактный JSON; базу, записанную версией до 2026-10-18 (отступы сохранялись как есть), можно ужать один раз при остановленном сервисе: `sqlite3 qlstats.db "UPDATE raw_events SET payload = json(payload) WHERE json_valid(payload); VACUUM;"`. После обновления версии с изменёнными правилами учёта запустите `qlstats recompute`. Например, колонка «Любимое оружие» (миграция БД v2, поле `fav_weapon` в `/api/players`) для матчей, записанных до обновления, заполняется только после `recompute`; до этого у таких игроков `fav_weapon` равно `null`.
 
 ## Структура кода
 

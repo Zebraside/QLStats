@@ -93,7 +93,7 @@ raw_events(
   received_at INTEGER NOT NULL,         -- UTC ms
   type        TEXT NOT NULL,            -- TYPE или '_INVALID'
   match_guid  TEXT,                     -- NULL, если нет/не разобран
-  payload     TEXT NOT NULL             -- исходный JSON (lossy UTF-8)
+  payload     TEXT NOT NULL             -- исходный JSON без отступов (lossy UTF-8)
 );  -- INDEX (match_guid, id), INDEX (type)
 
 matches(
@@ -147,7 +147,7 @@ players(steam_id TEXT PRIMARY KEY, last_name TEXT, last_seen INTEGER);
 ## 6. Поток обработки матча
 
 1. **Приём.** Collector получает фрейм и передаёт `(received_at, bytes)` в writer.
-2. **Запись сырого события.** Writer делает `INSERT INTO raw_events`, извлекая `TYPE` и `DATA.MATCH_GUID` минимальным разбором. Если разбор не удался, тип пишется как `_INVALID`, а payload — как есть.
+2. **Запись сырого события.** Writer делает `INSERT INTO raw_events`, извлекая `TYPE` и `DATA.MATCH_GUID` минимальным разбором. Сервер присылает JSON с трёхпробельными отступами; в базу пишется компактная форма (`serde_json::to_string`, порядок ключей сохраняется) — это в 1,8 раза меньше без потери данных. Если разбор не удался, тип пишется как `_INVALID`, а payload — как есть.
 3. **Ник.** Для событий с парой `(STEAM_ID != 0, NAME)` выполняется `UPSERT players` с `last_seen = received_at`.
 4. **Буферизация по `MATCH_GUID`.** В памяти события не буферизуются: буфер — это `raw_events` с индексом `(match_guid, id)`. Поэтому перезапуск процесса посреди матча ничего не теряет, а инкрементальный путь и `recompute` совпадают.
 5. **Завершение матча** по `MATCH_REPORT`. Внутри одной транзакции `BEGIN IMMEDIATE … COMMIT` выполняется `finalize_match(guid, report_raw_id)`:

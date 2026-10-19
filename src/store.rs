@@ -407,7 +407,15 @@ impl Writer {
     ) -> Result<Option<MatchOutcome>> {
         let text = model::decode_lossy(bytes);
         let (kind, guid) = model::extract_meta(&text);
-        let parsed = model::parse(&text);
+        // Сервер шлёт JSON с отступами (в 1,8 раза длиннее компактного). В raw_events
+        // кладём компактную форму с тем же порядком ключей; не-JSON сохраняется как есть.
+        let (text, parsed) = match serde_json::from_str::<serde_json::Value>(&text) {
+            Ok(v) => (
+                serde_json::to_string(&v).unwrap_or(text),
+                model::parse_value(v),
+            ),
+            Err(e) => (text, Err(e.into())),
+        };
         if let Err(e) = &parsed {
             tracing::warn!(error = %e, bytes = bytes.len(), "_INVALID событие");
         }

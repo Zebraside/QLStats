@@ -191,3 +191,34 @@ fn migration_adds_weapon_kills_to_v1_db() {
     let fav = alice.fav_weapon.as_ref().unwrap();
     assert_eq!((fav.weapon, fav.kills), ("RAILGUN", 5));
 }
+
+#[test]
+fn pretty_json_is_stored_compact() {
+    use qlstats::store::Writer;
+    let dir = tempfile::tempdir().unwrap();
+    let conn = store::open(&dir.path().join("t.db")).unwrap();
+    let mut w = Writer::new(conn, tz(), None);
+    // Так присылает игровой сервер: отступы в три пробела и пробел перед двоеточием.
+    let pretty = "{\n   \"TYPE\" : \"PLAYER_CONNECT\",\n   \"DATA\" : {\n      \"NAME\" : \"Zed\",\n      \"STEAM_ID\" : \"76561190000000009\",\n      \"MATCH_GUID\" : \"g-1\",\n      \"TIME\" : 1\n   }\n}\n";
+    w.process_frame(1_700_000_000_000, pretty.as_bytes())
+        .unwrap();
+    let (guid, payload): (String, String) = w
+        .conn()
+        .query_row(
+            "SELECT match_guid, payload FROM raw_events WHERE type = 'PLAYER_CONNECT'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(guid, "g-1");
+    assert!(
+        !payload.contains('\n') && !payload.contains("\" :"),
+        "{payload}"
+    );
+    assert!(payload.len() < pretty.len() * 3 / 4, "{payload}");
+    // Содержимое и порядок ключей не изменились.
+    let a: Value = serde_json::from_str(pretty).unwrap();
+    let b: Value = serde_json::from_str(&payload).unwrap();
+    assert_eq!(a, b);
+    assert!(payload.starts_with("{\"TYPE\":\"PLAYER_CONNECT\",\"DATA\":{\"NAME\""));
+}
